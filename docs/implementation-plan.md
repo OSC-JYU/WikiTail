@@ -355,8 +355,11 @@ Implementation notes:
 - Rather than injecting components into `v-html`, the body is split into markdown runs and embeds
   (`splitArticleBody` in `shared`), each rendered in its own way. Embeds are block-level: a shortcode
   inside a list item will not render as part of that list.
-- Tails are **per article version**, not per translation group — see
-  [Open questions](#open-questions), since it means a translation starts with an empty tail.
+- Tails are **per article version**, not per translation group, because commentary is written in a
+  language — a shared tail would show Finnish notes to English readers. To avoid re-curating the same
+  list per language, creating a translation offers to copy the source tail: the entries and their
+  commentary come across, and because items resolve at read time, they follow the new language
+  automatically. Only the notes need translating.
 
 ### M4 — Public browse view (mobile-first) + UI translation ⬅ next
 
@@ -420,15 +423,9 @@ admin role management; upload size limits; loading/error states.
 
 - Exact upload size limits — current defaults are placeholders.
 - Whether a derived `article_library_links` table is needed for "where is item X used" queries.
-- **Should a Tail be shared across language versions?** Entries currently belong to one article
-  version, so translating an article gives it an empty tail and the curation is done again per
-  language. Sharing the tail across the translation group would fix that, but commentary is written in
-  a language — Finnish notes would surface on the English version. Options: keep per-version; share
-  the tail with per-language commentary (extra table, extra UI); or keep per-version but offer to copy
-  the source tail when creating a translation, commentary included, as a draft to translate. The last
-  is cheapest on the current schema.
-- **Translating an existing article**: start the new version blank, or pre-fill with the source
-  language's markdown as a starting point for the translator?
+- **Translating an existing article**: the tail can now be copied (see below), but the *body* still
+  starts blank. Pre-fill it with the source language's markdown as a starting point for the
+  translator, or keep translators writing from scratch?
 - **Project index with missing translations.** An article page has a clear rule now (placeholder or
   substitute), but a *list* does not. Showing "translation missing" rows in a project index makes gaps
   visible and invites help; it also adds noise for visitors who cannot act on it. Likely answer: list

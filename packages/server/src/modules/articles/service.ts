@@ -10,6 +10,7 @@ import { forbidden, notFound } from '../../lib/errors.js';
 import { slugify } from '../../lib/slug.js';
 import { projectsRepository } from '../projects/repository.js';
 import { assertLanguageAllowed } from '../projects/service.js';
+import { tailRepository } from '../tail/repository.js';
 import { articlesRepository } from './repository.js';
 
 /** What to render when a translation group has no version in the requested language. */
@@ -82,11 +83,17 @@ export function createArticle(
   });
 }
 
-/** Adds a new language version to an existing article's translation group. */
+/**
+ * Adds a new language version to an existing article's translation group.
+ *
+ * Tails belong to a single version, so a translation starts empty unless
+ * `copyTail` is set — which duplicates the source's entries and commentary as a
+ * draft for the translator, rather than making them curate the list again.
+ */
 export function createTranslation(
   actor: User,
   sourceArticleId: number,
-  input: { language: string; title: string; bodyMarkdown: string },
+  input: { language: string; title: string; bodyMarkdown: string; copyTail?: boolean },
 ): Article {
   const source = getArticle(sourceArticleId);
   const project = requireProject(source.projectId);
@@ -96,7 +103,7 @@ export function createTranslation(
     throw Boom.conflict(`A ${input.language} version of this article already exists`);
   }
 
-  return articlesRepository.create({
+  const translation = articlesRepository.create({
     projectId: source.projectId,
     slug: slugify(input.title),
     title: input.title,
@@ -105,6 +112,12 @@ export function createTranslation(
     bodyMarkdown: input.bodyMarkdown,
     createdBy: actor.id,
   });
+
+  if (input.copyTail) {
+    tailRepository.copyToArticle(source.id, translation.id);
+  }
+
+  return translation;
 }
 
 export function setTranslationFallback(

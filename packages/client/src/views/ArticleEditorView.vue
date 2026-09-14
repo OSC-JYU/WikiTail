@@ -4,6 +4,7 @@ import { useRouter } from 'vue-router';
 import { libraryShortcode, type Article, type ArticleVersion, type Project } from '@wikitail/shared';
 import { articlesApi } from '../api/articles';
 import { projectsApi } from '../api/projects';
+import { tailApi } from '../api/tail';
 import WikiWorldTab from '../components/editor/WikiWorldTab.vue';
 import MyLibraryTab from '../components/editor/MyLibraryTab.vue';
 import TailEditor from '../components/editor/TailEditor.vue';
@@ -48,14 +49,29 @@ function insertLibraryRef(libraryItemId: number) {
   activeTab.value = 'Article';
 }
 
-async function addTranslation(language: string) {
-  if (!article.value) return;
+/** Which language the author is starting a translation in, or null when not translating. */
+const translatingTo = ref<string | null>(null);
+const translationTitle = ref('');
+const copyTail = ref(true);
+const tailSize = ref(0);
+
+async function startTranslation(language: string) {
+  translatingTo.value = language;
+  translationTitle.value = article.value?.title ?? '';
+  copyTail.value = true;
+  tailSize.value = article.value ? (await tailApi.list(article.value.id)).length : 0;
+}
+
+async function addTranslation() {
+  if (!article.value || !translatingTo.value || !translationTitle.value.trim()) return;
   translating.value = true;
   try {
     const created = await articlesApi.createTranslation(article.value.id, {
-      language,
-      title: `${article.value.title} (${language})`,
+      language: translatingTo.value,
+      title: translationTitle.value.trim(),
+      copyTail: copyTail.value,
     });
+    translatingTo.value = null;
     router.push({ name: 'article-edit', params: { slug: props.slug, id: created.id } });
   } finally {
     translating.value = false;
@@ -99,11 +115,25 @@ async function save(status: 'draft' | 'published') {
         :key="language"
         class="add-version"
         :disabled="translating"
-        @click="addTranslation(language)"
+        @click="startTranslation(language)"
       >
         + {{ language }}
       </button>
     </div>
+
+    <form v-if="translatingTo" class="translation-form" @submit.prevent="addTranslation">
+      <h3>New {{ translatingTo }} version</h3>
+      <input v-model="translationTitle" :placeholder="`Title in ${translatingTo}`" />
+      <label v-if="tailSize > 0">
+        <input v-model="copyTail" type="checkbox" />
+        Copy the tail ({{ tailSize }} {{ tailSize === 1 ? 'entry' : 'entries' }}) as a starting point
+        — items follow the new language automatically, the comments need translating.
+      </label>
+      <div class="translation-actions">
+        <button type="submit" :disabled="translating">Create</button>
+        <button type="button" @click="translatingTo = null">Cancel</button>
+      </div>
+    </form>
 
     <nav class="tabs">
       <button
@@ -188,6 +218,36 @@ async function save(status: 'draft' | 'published') {
 }
 .add-version {
   border-style: dashed;
+}
+.translation-form {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.75rem;
+  margin-bottom: 1rem;
+}
+.translation-form h3 {
+  margin: 0 0 0.5rem;
+  font-size: 0.95rem;
+}
+.translation-form input[type='text'],
+.translation-form > input {
+  width: 100%;
+  padding: 0.45rem;
+}
+.translation-form label {
+  display: flex;
+  gap: 0.4rem;
+  align-items: flex-start;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0.6rem 0;
+}
+.translation-form label input {
+  margin-top: 0.2rem;
+}
+.translation-actions {
+  display: flex;
+  gap: 0.5rem;
 }
 .tabs {
   display: flex;

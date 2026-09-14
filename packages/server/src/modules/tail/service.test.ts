@@ -141,6 +141,77 @@ describe('curating a tail', () => {
   });
 });
 
+describe('copying a tail onto a translation', () => {
+  it('starts empty unless the author asks for a copy', () => {
+    const project = makeProject();
+    const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
+    const item = makeItem({ language: 'fi', conceptId: null, title: 'Vesimylly' });
+    addToTail(actor, fi.id, { libraryItemId: item.id, commentary: 'note' });
+
+    const en = createTranslation(actor, fi.id, { language: 'en', title: 'Mill', bodyMarkdown: '' });
+    expect(listTail(en.id, actor.id)).toHaveLength(0);
+  });
+
+  it('carries entries, commentary and order across as a draft', () => {
+    const project = makeProject();
+    const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
+    const a = makeItem({ language: 'fi', conceptId: null, title: 'A' });
+    const b = makeItem({ language: 'fi', conceptId: null, title: 'B' });
+    addToTail(actor, fi.id, { libraryItemId: a.id, commentary: 'eka' });
+    addToTail(actor, fi.id, { libraryItemId: b.id, commentary: 'toka' });
+
+    const en = createTranslation(actor, fi.id, {
+      language: 'en',
+      title: 'Mill',
+      bodyMarkdown: '',
+      copyTail: true,
+    });
+
+    const copied = listTail(en.id, actor.id);
+    expect(copied.map((e) => e.item.title)).toEqual(['A', 'B']);
+    expect(copied.map((e) => e.commentary)).toEqual(['eka', 'toka']);
+  });
+
+  it('leaves the source tail untouched', () => {
+    const project = makeProject();
+    const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
+    const item = makeItem({ language: 'fi', conceptId: null, title: 'A' });
+    addToTail(actor, fi.id, { libraryItemId: item.id, commentary: 'note' });
+
+    const en = createTranslation(actor, fi.id, {
+      language: 'en',
+      title: 'Mill',
+      bodyMarkdown: '',
+      copyTail: true,
+    });
+    removeTailEntry(actor, listTail(en.id, actor.id)[0].id);
+
+    expect(listTail(fi.id, actor.id)).toHaveLength(1);
+  });
+
+  it('shows copied entries in the translation language where a version exists', () => {
+    const project = makeProject();
+    const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
+    const concept = 'wikidata:Q185187';
+    const fiItem = makeItem({ language: 'fi', conceptId: concept, title: 'Vesimylly' });
+    makeItem({ language: 'en', conceptId: concept, title: 'Watermill' });
+    addToTail(actor, fi.id, { libraryItemId: fiItem.id, commentary: 'vanha keksintö' });
+
+    const en = createTranslation(actor, fi.id, {
+      language: 'en',
+      title: 'Mill',
+      bodyMarkdown: '',
+      copyTail: true,
+    });
+
+    const [entry] = listTail(en.id, actor.id);
+    // The item follows the article's language; only the note still needs translating.
+    expect(entry.item.title).toBe('Watermill');
+    expect(entry.shownInOtherLanguage).toBe(false);
+    expect(entry.commentary).toBe('vanha keksintö');
+  });
+});
+
 describe('resolving tail items to the article language', () => {
   it('swaps in the version matching the article language', () => {
     const project = makeProject();

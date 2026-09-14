@@ -33,6 +33,11 @@ const insertStmt = db.prepare(`
 const updateCommentaryStmt = db.prepare('UPDATE tail_entries SET commentary = ? WHERE id = ?');
 const deleteStmt = db.prepare('DELETE FROM tail_entries WHERE id = ?');
 const setPositionStmt = db.prepare('UPDATE tail_entries SET position = ? WHERE id = ?');
+const copyStmt = db.prepare(`
+  INSERT INTO tail_entries (article_id, library_item_id, commentary, position)
+  SELECT ?, library_item_id, commentary, position
+  FROM tail_entries WHERE article_id = ? ORDER BY position
+`);
 
 export const tailRepository = {
   listByArticle(articleId: number): TailEntry[] {
@@ -60,6 +65,16 @@ export const tailRepository = {
 
   remove(id: number): void {
     deleteStmt.run(id);
+  },
+
+  /**
+   * Duplicates a tail onto another article, keeping order and commentary. Entries
+   * still point at the source language's library items; `listTail` resolves those
+   * to the target article's language at read time, so only the commentary needs
+   * translating by hand.
+   */
+  copyToArticle(fromArticleId: number, toArticleId: number): number {
+    return Number(copyStmt.run(toArticleId, fromArticleId).changes);
   },
 
   reorder(articleId: number, orderedIds: number[]): TailEntry[] {

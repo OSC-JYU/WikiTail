@@ -80,20 +80,23 @@ export const articlesRoutesPlugin: Plugin<undefined> = {
             language: Joi.string().min(2).max(12).required(),
             title: Joi.string().min(1).max(200).required(),
             bodyMarkdown: Joi.string().allow('').optional(),
+            copyTail: Joi.boolean().optional(),
           }),
         },
       },
       handler: (request) => {
         const actor = request.auth.credentials as unknown as User;
-        const { language, title, bodyMarkdown } = request.payload as {
+        const { language, title, bodyMarkdown, copyTail } = request.payload as {
           language: string;
           title: string;
           bodyMarkdown?: string;
+          copyTail?: boolean;
         };
         return createTranslation(actor, Number(request.params.id), {
           language,
           title,
           bodyMarkdown: bodyMarkdown ?? '',
+          copyTail,
         });
       },
     });

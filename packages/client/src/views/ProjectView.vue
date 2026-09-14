@@ -3,18 +3,26 @@ import { onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { Article, Project } from '@wikitail/shared';
 import { projectsApi } from '../api/projects';
+import { useAuthStore } from '../stores/auth';
 
 const props = defineProps<{ slug: string }>();
 const router = useRouter();
+const auth = useAuthStore();
 
 const project = ref<Project | null>(null);
 const articles = ref<Article[]>([]);
 const newTitle = ref('');
+const newLanguage = ref('');
 const creating = ref(false);
+const languageInput = ref('');
+const savingLanguages = ref(false);
+const error = ref<string | null>(null);
 
 async function load() {
   project.value = await projectsApi.get(props.slug);
   articles.value = await projectsApi.listArticles(props.slug);
+  newLanguage.value = project.value.languages[0] ?? '';
+  languageInput.value = project.value.languages.join(', ');
 }
 
 onMounted(load);
@@ -22,13 +30,34 @@ onMounted(load);
 async function createArticle() {
   if (!newTitle.value.trim()) return;
   creating.value = true;
+  error.value = null;
   try {
-    const article = await projectsApi.createArticle(props.slug, { title: newTitle.value.trim() });
+    const article = await projectsApi.createArticle(props.slug, {
+      title: newTitle.value.trim(),
+      language: newLanguage.value,
+    });
     newTitle.value = '';
-    await load();
     router.push({ name: 'article-edit', params: { slug: props.slug, id: article.id } });
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Could not create article';
   } finally {
     creating.value = false;
+  }
+}
+
+async function saveLanguages() {
+  savingLanguages.value = true;
+  error.value = null;
+  try {
+    project.value = await projectsApi.setLanguages(
+      props.slug,
+      languageInput.value.split(',').map((l) => l.trim()).filter(Boolean),
+    );
+    languageInput.value = project.value.languages.join(', ');
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Could not update languages';
+  } finally {
+    savingLanguages.value = false;
   }
 }
 </script>
@@ -38,20 +67,45 @@ async function createArticle() {
     <h1>{{ project.title }}</h1>
     <p v-if="project.description">{{ project.description }}</p>
 
+    <p class="languages">
+      Languages:
+      <span v-for="language in project.languages" :key="language" class="lang">{{ language }}</span>
+    </p>
+
+    <p v-if="error" class="error">{{ error }}</p>
+
     <h2>Articles</h2>
     <ul class="article-list">
       <li v-for="article in articles" :key="article.id">
         <RouterLink :to="{ name: 'article-edit', params: { slug: project.slug, id: article.id } }">
           {{ article.title }}
         </RouterLink>
-        <span class="status">{{ article.status }}</span>
+        <span class="meta">
+          <span class="lang">{{ article.language }}</span>
+          <span class="status">{{ article.status }}</span>
+        </span>
       </li>
     </ul>
     <p v-if="articles.length === 0">No articles yet.</p>
 
     <form class="new-article" @submit.prevent="createArticle">
       <input v-model="newTitle" placeholder="Article title" />
+      <select v-model="newLanguage">
+        <option v-for="language in project.languages" :key="language" :value="language">
+          {{ language }}
+        </option>
+      </select>
       <button type="submit" :disabled="creating">Create article</button>
+    </form>
+
+    <form v-if="auth.isAdmin" class="languages-form" @submit.prevent="saveLanguages">
+      <h2>Project languages</h2>
+      <p class="hint">
+        Comma-separated. Authors may only write in these, and imports fetch these language versions.
+        The first is the project's primary language.
+      </p>
+      <input v-model="languageInput" placeholder="fi, en" />
+      <button type="submit" :disabled="savingLanguages">Save languages</button>
     </form>
   </div>
 </template>
@@ -64,18 +118,55 @@ async function createArticle() {
 .article-list li {
   display: flex;
   justify-content: space-between;
+  gap: 1rem;
   padding: 0.5rem 0;
-  border-bottom: 1px solid #eee;
+  border-bottom: 1px solid var(--border);
+}
+.meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
 }
 .status {
   font-size: 0.75rem;
-  color: #666;
+  color: var(--text-muted);
   text-transform: uppercase;
 }
+.lang {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 0.3rem;
+  color: var(--text-muted);
+  margin-left: 0.3rem;
+}
+.languages {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+.new-article {
+  display: flex;
+  gap: 0.5rem;
+  margin: 1rem 0 2rem;
+}
 .new-article input {
-  display: block;
-  width: 100%;
+  flex: 1;
   padding: 0.5rem;
-  margin: 1rem 0 0.5rem;
+}
+.languages-form {
+  border-top: 1px solid var(--border);
+  padding-top: 1rem;
+}
+.languages-form input {
+  padding: 0.5rem;
+  margin-right: 0.5rem;
+}
+.hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.error {
+  color: #c0392b;
 }
 </style>

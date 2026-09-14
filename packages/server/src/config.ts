@@ -33,7 +33,8 @@ export const config = {
   dbPath: path.resolve(serverRoot, env('DB_PATH', 'data/wikitail.db')),
   uploadsDir: path.resolve(serverRoot, env('UPLOADS_DIR', 'uploads')),
   clientDistDir: path.resolve(serverRoot, '../client/dist'),
-  wikipediaLang: env('WIKIPEDIA_LANG', 'en'),
+  /** Language for projects created without one, and for source searches with no context. */
+  defaultLanguage: env('DEFAULT_LANGUAGE', 'en'),
   wikipediaUserAgent: env(
     'WIKIPEDIA_USER_AGENT',
     'Wikitail/0.1 (local dev; contact: admin@wikitail.local)',

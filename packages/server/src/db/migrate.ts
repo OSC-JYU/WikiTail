@@ -23,13 +23,31 @@ export function runMigrations(db: Database.Database): void {
     .filter((f) => f.endsWith('.sql'))
     .sort();
 
-  for (const file of files) {
-    if (applied.has(file)) continue;
-    const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
-    logger.info(`Applying migration ${file}`);
-    db.transaction(() => {
-      db.exec(sql);
-      db.prepare('INSERT INTO schema_migrations (name) VALUES (?)').run(file);
-    })();
+  const pending = files.filter((file) => !applied.has(file));
+  if (pending.length === 0) return;
+
+  // SQLite cannot alter constraints in place, so migrations may rebuild a table
+  // (create → copy → drop → rename). That trips foreign keys pointing at the old
+  // table, and `PRAGMA foreign_keys` is a no-op inside a transaction — so it has
+  // to be toggled out here, around the whole run.
+  db.pragma('foreign_keys = OFF');
+  try {
+    for (const file of pending) {
+      const sql = fs.readFileSync(path.join(migrationsDir, file), 'utf8');
+      logger.info(`Applying migration ${file}`);
+      db.transaction(() => {
+        db.exec(sql);
+        db.prepare('INSERT INTO schema_migrations (name) VALUES (?)').run(file);
+      })();
+
+      const violations = db.pragma('foreign_key_check') as unknown[];
+      if (violations.length > 0) {
+        throw new Error(
+          `Migration ${file} left ${violations.length} foreign key violation(s): ${JSON.stringify(violations.slice(0, 5))}`,
+        );
+      }
+    }
+  } finally {
+    db.pragma('foreign_keys = ON');
   }
 }

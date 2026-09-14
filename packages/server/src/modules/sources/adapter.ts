@@ -7,6 +7,18 @@ import type { SourceSearchResult, SourceSnapshot, SourceType } from '@wikitail/s
  */
 export interface SourceAdapter {
   key: SourceType;
-  search(query: string, opts?: { limit?: number }): Promise<SourceSearchResult[]>;
+  search(
+    query: string,
+    opts?: { limit?: number; language?: string },
+  ): Promise<SourceSearchResult[]>;
   importItem(externalId: string): Promise<SourceSnapshot>;
+  /**
+   * Language versions of the same thing, without fetching its content — used to
+   * fill in siblings for an item already in the library. Sources with no notion
+   * of language versions can leave this out.
+   */
+  resolveSiblings?(externalId: string): Promise<{
+    conceptId?: string;
+    siblings: Record<string, string>;
+  }>;
 }

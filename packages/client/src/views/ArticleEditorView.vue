@@ -1,22 +1,55 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
-import type { Article } from '@wikitail/shared';
+import { computed, onMounted, ref, watch } from 'vue';
+import { useRouter } from 'vue-router';
+import type { Article, ArticleVersion, Project } from '@wikitail/shared';
 import { articlesApi } from '../api/articles';
+import { projectsApi } from '../api/projects';
 import WikiWorldTab from '../components/editor/WikiWorldTab.vue';
 import MyLibraryTab from '../components/editor/MyLibraryTab.vue';
 
 const props = defineProps<{ slug: string; id: string }>();
+const router = useRouter();
 
 // Commons, Finna and Local tabs arrive with their adapters in later milestones.
 const tabs = ['Article', 'Wiki world', 'My Library'] as const;
 const activeTab = ref<(typeof tabs)[number]>('Article');
 
 const article = ref<Article | null>(null);
+const project = ref<Project | null>(null);
+const versions = ref<ArticleVersion[]>([]);
 const saving = ref(false);
+const translating = ref(false);
 
-onMounted(async () => {
-  article.value = await articlesApi.get(Number(props.id));
+/** Project languages this article has no version in yet. */
+const missingLanguages = computed(() => {
+  const have = new Set(versions.value.map((v) => v.language));
+  return (project.value?.languages ?? []).filter((l) => !have.has(l));
 });
+
+async function load(id: number) {
+  article.value = await articlesApi.get(id);
+  [project.value, versions.value] = await Promise.all([
+    projectsApi.get(props.slug),
+    articlesApi.versions(id),
+  ]);
+}
+
+onMounted(() => load(Number(props.id)));
+watch(() => props.id, (id) => load(Number(id)));
+
+async function addTranslation(language: string) {
+  if (!article.value) return;
+  translating.value = true;
+  try {
+    const created = await articlesApi.createTranslation(article.value.id, {
+      language,
+      title: `${article.value.title} (${language})`,
+    });
+    router.push({ name: 'article-edit', params: { slug: props.slug, id: created.id } });
+  } finally {
+    translating.value = false;
+  }
+}
 
 async function save(status: 'draft' | 'published') {
   if (!article.value) return;
@@ -38,6 +71,28 @@ async function save(status: 'draft' | 'published') {
     <RouterLink :to="{ name: 'project', params: { slug } }">&larr; back to project</RouterLink>
 
     <input v-model="article.title" class="title-input" />
+
+    <div class="languages">
+      <span class="label">Language versions:</span>
+      <RouterLink
+        v-for="version in versions"
+        :key="version.id"
+        :to="{ name: 'article-edit', params: { slug, id: version.id } }"
+        class="version"
+        :class="{ current: version.id === article.id }"
+      >
+        {{ version.language }}
+      </RouterLink>
+      <button
+        v-for="language in missingLanguages"
+        :key="language"
+        class="add-version"
+        :disabled="translating"
+        @click="addTranslation(language)"
+      >
+        + {{ language }}
+      </button>
+    </div>
 
     <nav class="tabs">
       <button
@@ -65,7 +120,11 @@ async function save(status: 'draft' | 'published') {
     </section>
 
     <section v-show="activeTab === 'Wiki world'">
-      <WikiWorldTab />
+      <WikiWorldTab
+        :article-id="article.id"
+        :language="article.language"
+        :project-languages="project?.languages ?? []"
+      />
     </section>
 
     <section v-show="activeTab === 'My Library'">
@@ -81,6 +140,36 @@ async function save(status: 'draft' | 'published') {
   font-size: 1.5rem;
   padding: 0.5rem;
   margin: 1rem 0;
+}
+.languages {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-bottom: 1rem;
+  font-size: 0.8rem;
+}
+.languages .label {
+  color: var(--text-muted);
+}
+.version,
+.add-version {
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  padding: 0.15rem 0.45rem;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  text-decoration: none;
+  color: var(--text-muted);
+  background: none;
+}
+.version.current {
+  color: var(--text);
+  border-color: currentColor;
+  font-weight: 600;
+}
+.add-version {
+  border-style: dashed;
 }
 .tabs {
   display: flex;

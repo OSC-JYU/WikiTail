@@ -15,15 +15,17 @@ export const useLibraryStore = defineStore('library', {
       this.items = await libraryApi.list();
       this.loaded = true;
     },
-    async importItem(sourceType: SourceType, externalId: string) {
-      const item = await libraryApi.import(sourceType, externalId);
-      const existing = this.items.findIndex((i) => i.id === item.id);
-      if (existing === -1) {
-        this.items.unshift(item);
-      } else {
-        this.items[existing] = item;
+    async importItem(sourceType: SourceType, externalId: string, articleId?: number) {
+      const result = await libraryApi.import(sourceType, externalId, articleId);
+      for (const item of [result.item, ...result.siblings]) {
+        const existing = this.items.findIndex((i) => i.id === item.id);
+        if (existing === -1) {
+          this.items.unshift(item);
+        } else {
+          this.items[existing] = item;
+        }
       }
-      return item;
+      return result;
     },
   },
 });

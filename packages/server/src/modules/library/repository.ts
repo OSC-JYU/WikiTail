@@ -8,6 +8,8 @@ interface LibraryItemRow {
   external_id: string | null;
   external_url: string | null;
   source_revision: string | null;
+  language: string | null;
+  concept_id: string | null;
   title: string;
   local_file_id: number | null;
   license_name: string | null;
@@ -24,7 +26,7 @@ interface FullLibraryItemRow extends LibraryItemRow {
 }
 
 const SUMMARY_COLUMNS = `
-  id, owner_id, source_type, external_id, external_url, source_revision, title,
+  id, owner_id, source_type, external_id, external_url, source_revision, language, concept_id, title,
   local_file_id, license_name, license_url, attribution_text, imported_at, imported_by, created_at
 `;
 
@@ -36,6 +38,8 @@ function toSummary(row: LibraryItemRow): LibraryItemSummary {
     externalId: row.external_id,
     externalUrl: row.external_url,
     sourceRevision: row.source_revision,
+    language: row.language,
+    conceptId: row.concept_id,
     title: row.title,
     localFileId: row.local_file_id,
     licenseName: row.license_name,
@@ -66,13 +70,18 @@ const findByExternalStmt = db.prepare(
 );
 const insertStmt = db.prepare(`
   INSERT INTO library_items (
-    owner_id, source_type, external_id, external_url, source_revision, title,
+    owner_id, source_type, external_id, external_url, source_revision, language, concept_id, title,
     snapshot_html, snapshot_json, license_name, license_url, attribution_text, imported_by
   ) VALUES (
-    @ownerId, @sourceType, @externalId, @externalUrl, @sourceRevision, @title,
+    @ownerId, @sourceType, @externalId, @externalUrl, @sourceRevision, @language, @conceptId, @title,
     @snapshotHtml, @snapshotJson, @licenseName, @licenseUrl, @attributionText, @importedBy
   )
 `);
+const setConceptStmt = db.prepare('UPDATE library_items SET concept_id = ? WHERE id = ?');
+const findByConceptStmt = db.prepare(
+  `SELECT ${SUMMARY_COLUMNS} FROM library_items
+   WHERE owner_id = ? AND concept_id = ? AND language = ?`,
+);
 
 export const libraryRepository = {
   listByOwner(ownerId: number): LibraryItemSummary[] {
@@ -95,12 +104,29 @@ export const libraryRepository = {
     return row ? toSummary(row) : undefined;
   },
 
+  setConcept(id: number, conceptId: string): LibraryItemSummary {
+    setConceptStmt.run(conceptId, id);
+    return toSummary(findSummaryByIdStmt.get(id) as LibraryItemRow);
+  },
+
+  /** The sibling of an imported item in another language, matched by concept. */
+  findByConcept(
+    ownerId: number,
+    conceptId: string,
+    language: string,
+  ): LibraryItemSummary | undefined {
+    const row = findByConceptStmt.get(ownerId, conceptId, language) as LibraryItemRow | undefined;
+    return row ? toSummary(row) : undefined;
+  },
+
   create(input: {
     ownerId: number;
     sourceType: SourceType;
     externalId: string | null;
     externalUrl: string | null;
     sourceRevision: string | null;
+    language: string | null;
+    conceptId: string | null;
     title: string;
     snapshotHtml: string | null;
     snapshotJson: string | null;

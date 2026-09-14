@@ -1,7 +1,4 @@
 import sanitizeHtml from 'sanitize-html';
-import { config } from '../../../config.js';
-
-const wikiBase = `https://${config.wikipediaLang}.wikipedia.org`;
 
 /** Parsoid returns a full document; only the body is worth snapshotting. */
 function extractBody(html: string): string {
@@ -17,7 +14,7 @@ function extractBody(html: string): string {
  * "//host/path" protocol-relative, and bare "#fragment" anchors (whose targets
  * are stripped along with element ids, so they point back at the live article).
  */
-function resolveUrl(href: string, title: string): string | undefined {
+function resolveUrl(href: string, title: string, wikiBase: string): string | undefined {
   if (href.startsWith('./')) return `${wikiBase}/wiki/${href.slice(2)}`;
   if (href.startsWith('//')) return `https:${href}`;
   if (href.startsWith('#')) return `${wikiBase}/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}${href}`;
@@ -25,7 +22,12 @@ function resolveUrl(href: string, title: string): string | undefined {
   return undefined;
 }
 
-export function sanitizeArticleHtml(html: string, title: string): string {
+/**
+ * `language` decides which wiki relative links resolve against — a Finnish
+ * snapshot's "./Vesimylly" must point at fi.wikipedia.org, not en.
+ */
+export function sanitizeArticleHtml(html: string, title: string, language: string): string {
+  const wikiBase = `https://${language}.wikipedia.org`;
   return sanitizeHtml(extractBody(html), {
     allowedTags: [
       'section', 'p', 'div', 'span', 'br', 'hr',
@@ -47,7 +49,7 @@ export function sanitizeArticleHtml(html: string, title: string): string {
     allowedSchemes: ['https', 'http', 'mailto'],
     transformTags: {
       a: (tagName, attribs) => {
-        const href = attribs.href ? resolveUrl(attribs.href, title) : undefined;
+        const href = attribs.href ? resolveUrl(attribs.href, title, wikiBase) : undefined;
         if (!href) {
           return { tagName: 'span', attribs: {} };
         }

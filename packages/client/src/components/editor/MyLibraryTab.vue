@@ -36,7 +36,10 @@ async function preview(id: number) {
     <li v-for="item in library.items" :key="item.id">
       <button class="row" @click="preview(item.id)">
         <span class="title">{{ item.title }}</span>
-        <span class="source">{{ item.sourceType }}</span>
+        <span class="meta">
+          <span v-if="item.language" class="lang">{{ item.language }}</span>
+          <span class="source">{{ item.sourceType }}</span>
+        </span>
       </button>
 
       <div v-if="selected?.id === item.id" class="preview">
@@ -74,10 +77,24 @@ async function preview(id: number) {
 .title {
   font-weight: 500;
 }
+.meta {
+  display: flex;
+  gap: 0.5rem;
+  align-items: baseline;
+  flex-shrink: 0;
+}
 .source {
   font-size: 0.75rem;
   color: var(--text-muted);
   text-transform: uppercase;
+}
+.lang {
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 0 0.3rem;
+  color: var(--text-muted);
 }
 .preview {
   padding-bottom: 1rem;

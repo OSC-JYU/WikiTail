@@ -14,6 +14,8 @@ export interface Project {
   title: string;
   description: string | null;
   mainArticleId: number | null;
+  /** Declared content languages, ordered; the first is the project's primary. */
+  languages: string[];
   createdBy: number;
   createdAt: string;
 }
@@ -25,11 +27,30 @@ export interface Article {
   projectId: number;
   slug: string;
   title: string;
+  language: string;
+  /** Language versions of the same article share this group. */
+  translationGroupId: number;
   bodyMarkdown: string;
   status: ArticleStatus;
   createdBy: number;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TranslationGroup {
+  id: number;
+  projectId: number;
+  /** null: show the "translation missing" invitation; set: show that article instead. */
+  fallbackArticleId: number | null;
+}
+
+/** One language version within a translation group, for switching between versions. */
+export interface ArticleVersion {
+  id: number;
+  language: string;
+  slug: string;
+  title: string;
+  status: ArticleStatus;
 }
 
 export type SourceType = 'wikipedia' | 'wikidata' | 'commons' | 'finna' | 'local_upload';
@@ -41,6 +62,10 @@ export interface LibraryItem {
   externalId: string | null;
   externalUrl: string | null;
   sourceRevision: string | null;
+  /** null for language-neutral items such as a Commons image. */
+  language: string | null;
+  /** Ties language versions of one topic together, e.g. "wikidata:Q185187". */
+  conceptId: string | null;
   title: string;
   snapshotHtml: string | null;
   snapshotJson: unknown | null;
@@ -55,6 +80,12 @@ export interface LibraryItem {
 
 /** Library listing shape — omits snapshot bodies, which can be hundreds of KB each. */
 export type LibraryItemSummary = Omit<LibraryItem, 'snapshotHtml' | 'snapshotJson'>;
+
+export interface ImportResult {
+  item: LibraryItemSummary;
+  /** Sibling language versions pulled in alongside the requested one. */
+  siblings: LibraryItemSummary[];
+}
 
 export type LocalFileKind = 'image' | 'audio' | 'video' | 'other';
 
@@ -85,6 +116,7 @@ export interface SourceSearchResult {
   snippet?: string;
   thumbnailUrl?: string;
   sourceType: SourceType;
+  language?: string;
 }
 
 /** Fetched content from a source adapter, ready to persist as a LibraryItem. */
@@ -93,6 +125,10 @@ export interface SourceSnapshot {
   externalId: string;
   externalUrl: string;
   sourceRevision?: string;
+  language?: string;
+  conceptId?: string;
+  /** Language code -> external id of the same concept on another wiki. */
+  siblings?: Record<string, string>;
   title: string;
   html?: string;
   json?: unknown;

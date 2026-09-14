@@ -1,6 +1,6 @@
 # Wikitail — Implementation Plan
 
-Status: **M0 and M1 complete.** M2 (language foundations) is next.
+Status: **M0, M1 and M2 complete.** M3 (editor and Tail curation) is next.
 
 Wikitail is a self-hosted, multi-user app for writing local articles (markdown) enriched with
 content imported from external "wiki world" sources — Wikipedia first, then Wikimedia Commons,
@@ -311,7 +311,7 @@ Implementation notes:
 - Library listings omit snapshot bodies; only the detail endpoint returns HTML.
 - Re-importing an item already in the library returns the existing row.
 
-### M2 — Language foundations ⬅ next
+### M2 — Language foundations ✅ done
 
 `project_languages` with an ordered language set and admin UI to manage it; article `language` +
 `translation_groups` with per-language slugs and authoring constrained to the project's languages;
@@ -327,7 +327,21 @@ Sequenced before the editor and browse work deliberately: `articles.language` is
 Tail resolution and the public browse view both need to know an article's language. Retrofitting it
 after those exist means reworking their queries and rendering rather than just adding a migration.
 
-### M3 — Editor and Tail curation
+Implementation notes:
+
+- Migrations now toggle `foreign_keys` off around the whole run and check
+  `PRAGMA foreign_key_check` after each one. SQLite cannot alter constraints in place, so `articles`
+  had to be rebuilt (create → copy → drop → rename) to change its UNIQUE constraints and add a NOT
+  NULL column carrying a REFERENCES clause — and the pragma is a no-op inside a transaction.
+- `resolveSiblings()` is an optional adapter method: re-importing a page that is already in the
+  library skips re-fetching its content, but must still resolve siblings, because the project may have
+  gained a language since. It is a single cheap JSON call rather than re-downloading ~260KB of HTML,
+  and it backfills `concept_id` on rows imported before concepts existed.
+- Removing a project language that articles are written in is rejected rather than orphaning them.
+- The sanitizer's hardcoded wiki host is fixed: snapshots now resolve links against their own
+  language's wiki (verified — a `fi` snapshot links only to `fi.wikipedia.org`).
+
+### M3 — Editor and Tail curation ⬅ next
 
 Markdown editor (`markdown-it`, `html: false`) with live preview and the `[[library:N]]` shortcode
 plugin; `TailEditor.vue` with drag-reorder; `tail_entries` CRUD, resolving each entry to the library
@@ -376,9 +390,8 @@ admin role management; upload size limits; loading/error states.
 
 ## Known gaps
 
-- **Nothing is language-aware yet.** M0/M1 assume a single language throughout: articles have no
-  language column and `WIKIPEDIA_LANG` is a single global. The sanitizer's hardcoded wiki host is an
-  outright bug for any non-default language (see [Multilingual design](#code-this-touches)).
+- **UI chrome is not translated yet.** M2 made content language-aware, but the interface itself is
+  still English-only; `vue-i18n` and the switcher land in M4.
 - **No test suite yet.** `vitest` is planned but not installed; verification so far has been manual
   plus scripted browser runs. Worth addressing before the codebase grows much further — the language
   work in M2 adds fallback and resolution logic that is exactly the kind of thing tests should pin

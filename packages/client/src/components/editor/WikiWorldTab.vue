@@ -4,6 +4,10 @@ import type { SourceSearchResult } from '@wikitail/shared';
 import { libraryApi } from '../../api/library';
 import { useLibraryStore } from '../../stores/library';
 
+/** Search runs against the wiki for the article's language, and importing pulls in
+ * the sibling versions for the project's other languages. */
+const props = defineProps<{ articleId: number; language: string; projectLanguages: string[] }>();
+
 const library = useLibraryStore();
 
 const query = ref('');
@@ -12,13 +16,16 @@ const searching = ref(false);
 const searched = ref(false);
 const importingId = ref<string | null>(null);
 const error = ref<string | null>(null);
+const lastImport = ref<string | null>(null);
 
 async function search() {
   if (!query.value.trim()) return;
   searching.value = true;
   error.value = null;
   try {
-    results.value = await libraryApi.search('wikipedia', query.value.trim());
+    results.value = await libraryApi.search('wikipedia', query.value.trim(), {
+      language: props.language,
+    });
     searched.value = true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Search failed';
@@ -30,8 +37,16 @@ async function search() {
 async function importResult(result: SourceSearchResult) {
   importingId.value = result.externalId;
   error.value = null;
+  lastImport.value = null;
   try {
-    await library.importItem('wikipedia', result.externalId);
+    const { item, siblings } = await library.importItem(
+      'wikipedia',
+      result.externalId,
+      props.articleId,
+    );
+    lastImport.value = siblings.length
+      ? `Imported ${item.title} plus ${siblings.map((s) => `${s.title} (${s.language})`).join(', ')}`
+      : `Imported ${item.title} — no other language version found`;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Import failed';
   } finally {
@@ -42,11 +57,18 @@ async function importResult(result: SourceSearchResult) {
 
 <template>
   <form class="search" @submit.prevent="search">
-    <input v-model="query" placeholder="Search Wikipedia…" />
+    <input v-model="query" :placeholder="`Search ${language}.wikipedia.org…`" />
     <button type="submit" :disabled="searching">{{ searching ? 'Searching…' : 'Search' }}</button>
   </form>
 
+  <p class="hint">
+    Searching in <strong>{{ language }}</strong
+    >. Importing also fetches
+    {{ projectLanguages.filter((l) => l !== language).join(', ') || 'no other language' }}.
+  </p>
+
   <p v-if="error" class="error">{{ error }}</p>
+  <p v-if="lastImport" class="imported-note">{{ lastImport }}</p>
 
   <ul class="results">
     <li v-for="result in results" :key="result.externalId">
@@ -113,5 +135,14 @@ async function importResult(result: SourceSearchResult) {
 }
 .error {
   color: #c0392b;
+}
+.hint,
+.imported-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin: 0 0 0.75rem;
+}
+.imported-note {
+  color: var(--text);
 }
 </style>

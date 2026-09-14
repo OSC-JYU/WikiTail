@@ -1,11 +1,13 @@
 import { db } from '../../db/connection.js';
-import type { Article, ArticleStatus } from '@wikitail/shared';
+import type { Article, ArticleStatus, ArticleVersion, TranslationGroup } from '@wikitail/shared';
 
 interface ArticleRow {
   id: number;
   project_id: number;
   slug: string;
   title: string;
+  language: string;
+  translation_group_id: number;
   body_markdown: string;
   status: ArticleStatus;
   created_by: number;
@@ -19,6 +21,8 @@ function toArticle(row: ArticleRow): Article {
     projectId: row.project_id,
     slug: row.slug,
     title: row.title,
+    language: row.language,
+    translationGroupId: row.translation_group_id,
     bodyMarkdown: row.body_markdown,
     status: row.status,
     createdBy: row.created_by,
@@ -29,11 +33,24 @@ function toArticle(row: ArticleRow): Article {
 
 const listByProjectStmt = db.prepare('SELECT * FROM articles WHERE project_id = ? ORDER BY created_at DESC');
 const findByIdStmt = db.prepare('SELECT * FROM articles WHERE id = ?');
-const findBySlugStmt = db.prepare('SELECT * FROM articles WHERE project_id = ? AND slug = ?');
+const findBySlugStmt = db.prepare(
+  'SELECT * FROM articles WHERE project_id = ? AND language = ? AND slug = ?',
+);
+const findInGroupStmt = db.prepare(
+  'SELECT * FROM articles WHERE translation_group_id = ? AND language = ?',
+);
+const listVersionsStmt = db.prepare(
+  'SELECT id, language, slug, title, status FROM articles WHERE translation_group_id = ? ORDER BY language',
+);
 const insertStmt = db.prepare(`
-  INSERT INTO articles (project_id, slug, title, body_markdown, created_by)
-  VALUES (@projectId, @slug, @title, @bodyMarkdown, @createdBy)
+  INSERT INTO articles (project_id, slug, title, language, translation_group_id, body_markdown, created_by)
+  VALUES (@projectId, @slug, @title, @language, @translationGroupId, @bodyMarkdown, @createdBy)
 `);
+const insertGroupStmt = db.prepare('INSERT INTO translation_groups (project_id) VALUES (?)');
+const findGroupStmt = db.prepare('SELECT * FROM translation_groups WHERE id = ?');
+const setFallbackStmt = db.prepare(
+  'UPDATE translation_groups SET fallback_article_id = ? WHERE id = ?',
+);
 const updateStmt = db.prepare(`
   UPDATE articles
   SET title = @title, body_markdown = @bodyMarkdown, status = @status, updated_at = datetime('now')
@@ -50,20 +67,52 @@ export const articlesRepository = {
     return row ? toArticle(row) : undefined;
   },
 
-  findBySlug(projectId: number, slug: string): Article | undefined {
-    const row = findBySlugStmt.get(projectId, slug) as ArticleRow | undefined;
+  findBySlug(projectId: number, language: string, slug: string): Article | undefined {
+    const row = findBySlugStmt.get(projectId, language, slug) as ArticleRow | undefined;
     return row ? toArticle(row) : undefined;
   },
 
+  findInGroup(translationGroupId: number, language: string): Article | undefined {
+    const row = findInGroupStmt.get(translationGroupId, language) as ArticleRow | undefined;
+    return row ? toArticle(row) : undefined;
+  },
+
+  listVersions(translationGroupId: number): ArticleVersion[] {
+    return listVersionsStmt.all(translationGroupId) as ArticleVersion[];
+  },
+
+  findGroup(id: number): TranslationGroup | undefined {
+    const row = findGroupStmt.get(id) as
+      | { id: number; project_id: number; fallback_article_id: number | null }
+      | undefined;
+    return row
+      ? { id: row.id, projectId: row.project_id, fallbackArticleId: row.fallback_article_id }
+      : undefined;
+  },
+
+  setFallback(translationGroupId: number, articleId: number | null): TranslationGroup {
+    setFallbackStmt.run(articleId, translationGroupId);
+    return this.findGroup(translationGroupId)!;
+  },
+
+  /** Creates an article, opening a new translation group unless joining one. */
   create(input: {
     projectId: number;
     slug: string;
     title: string;
+    language: string;
+    translationGroupId?: number;
     bodyMarkdown: string;
     createdBy: number;
   }): Article {
-    const info = insertStmt.run(input);
-    return this.findById(Number(info.lastInsertRowid))!;
+    const create = db.transaction(() => {
+      const translationGroupId =
+        input.translationGroupId ??
+        Number(insertGroupStmt.run(input.projectId).lastInsertRowid);
+      const info = insertStmt.run({ ...input, translationGroupId });
+      return Number(info.lastInsertRowid);
+    });
+    return this.findById(create())!;
   },
 
   update(id: number, input: { title: string; bodyMarkdown: string; status: ArticleStatus }): Article {

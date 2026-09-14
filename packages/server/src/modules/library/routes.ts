@@ -17,12 +17,17 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
           query: Joi.object({
             q: Joi.string().min(1).max(300).required(),
             limit: Joi.number().integer().min(1).max(25).default(10),
+            language: Joi.string().min(2).max(12).optional(),
           }),
         },
       },
       handler: (request) => {
-        const { q, limit } = request.query as { q: string; limit: number };
-        return searchSource(request.params.sourceType as SourceType, q, limit);
+        const { q, limit, language } = request.query as {
+          q: string;
+          limit: number;
+          language?: string;
+        };
+        return searchSource(request.params.sourceType as SourceType, q, limit, language);
       },
     });
 
@@ -47,15 +52,23 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
           payload: Joi.object({
             sourceType: Joi.string().valid(...SOURCE_TYPES).required(),
             externalId: Joi.string().min(1).max(500).required(),
+            // Supplies the project context that decides which sibling languages to fetch.
+            articleId: Joi.number().integer().optional(),
           }),
         },
       },
       handler: (request) => {
-        const { sourceType, externalId } = request.payload as {
+        const { sourceType, externalId, articleId } = request.payload as {
           sourceType: SourceType;
           externalId: string;
+          articleId?: number;
         };
-        return importToLibrary(request.auth.credentials as unknown as User, sourceType, externalId);
+        return importToLibrary(
+          request.auth.credentials as unknown as User,
+          sourceType,
+          externalId,
+          articleId,
+        );
       },
     });
   },

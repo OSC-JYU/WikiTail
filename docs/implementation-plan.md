@@ -1,7 +1,7 @@
 # Wikitail — Implementation Plan
 
-Status: **M0-M5 complete.** Remaining work is the Finna adapter and the deferred
-snapshot-refresh question.
+Status: **M0-M5 complete**, with all four sources built. The deferred snapshot-refresh
+question remains open.
 
 Wikitail is a self-hosted, multi-user app for writing local articles (markdown) enriched with
 content imported from external "wiki world" sources — Wikipedia first, then Wikimedia Commons,
@@ -23,8 +23,10 @@ See [`idea.md`](../idea.md) for the original concept.
   hapi exposes a JSON/REST API only.
 - **Storage**: SQLite for structured data; local disk for binary uploads. No object storage, no
   server-rendered pages.
-- **External sources**: Wikipedia first, via the Wikimedia REST HTML endpoint (rendered HTML, never
-  wikitext parsing). Commons/Wikidata/Finna follow behind a shared adapter interface.
+- **External sources**: Wikipedia (REST HTML, never wikitext parsing), Wikimedia Commons and Finna,
+  all behind one adapter interface. **Restricted material is never re-hosted**: Finna aggregates
+  archives and museums whose records carry every rights status there is, so a file is copied only
+  where the licence plainly allows redistribution and is otherwise kept as a link.
 - **Language**: TypeScript across server and client, with a shared types package.
 - **Publishing**: articles have a draft/published state; any author publishes their own article (no
   admin approval). Only published articles appear in public browse.
@@ -389,7 +391,7 @@ Implementation notes:
 - Language codes are shown through `Intl.DisplayNames`, so a Finnish reader sees "englanti" rather
   than "en".
 
-### M5 — Polish and second adapter ✅ done
+### M5 — Polish, Commons, Finna and local uploads ✅ done
 
 Commons adapter (chosen over Wikidata as the second *content* source — it exercises the binary media
 path via `local_files`, validating the interface for media and not just text) + `CommonsTab.vue`
@@ -424,6 +426,19 @@ Local upload notes:
 - Roles are managed in the app, not by the SSO proxy, which supplies identity only. An admin cannot
   demote themselves — that is nearly always a slip, and it could leave an instance with nobody able
   to create projects.
+
+Finna notes:
+
+- Searches use `free_online_boolean` and `~format_ext_str_mv:"0/Image/"`, because plenty of Finna
+  records are catalogue entries with no file attached.
+- **A file is copied only where the licence plainly allows redistribution** — CC0, PDM, CC BY, CC
+  BY-SA and CC BY-ND, the last because ND still permits redistributing a *verbatim* copy and Finna's
+  own rendering is stored unaltered. Anything else (InC, CNE, NonCommercial) is imported as a
+  reference: title, credit and a link to Finna, with no local file. Each search result says which it
+  will be before the author chooses.
+- NonCommercial is behind `FINNA_ALLOW_NONCOMMERCIAL`, off by default: whether a deployment is
+  commercial is the operator's fact to know, not ours to assume.
+- Finna's terms ask for the creator **and** the holding organisation, so the credit names both.
 
 ## Package choices
 

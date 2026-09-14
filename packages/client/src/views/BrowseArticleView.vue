@@ -67,9 +67,19 @@ const projectUsesLocale = computed(() => data.value?.project.languages.includes(
   <div v-if="notFound"><p>404</p></div>
 
   <div v-else-if="data" class="feed">
-    <RouterLink :to="{ name: 'browse-project', params: { project } }" class="back">
-      {{ $t('nav.backToProject') }}
-    </RouterLink>
+    <nav class="crumbs">
+      <RouterLink :to="{ name: 'browse-project', params: { project } }" class="back">
+        {{ $t('nav.backToProject') }}
+      </RouterLink>
+      <!-- Signed-in authors get straight back to the editor for what they are reading. -->
+      <RouterLink
+        v-if="auth.user"
+        class="edit-link"
+        :to="{ name: 'article-edit', params: { slug: project, id: data.article.id } }"
+      >
+        {{ $t('nav.edit') }} &rarr;
+      </RouterLink>
+    </nav>
 
     <div class="head">
       <h1>{{ data.article.title }}</h1>
@@ -158,8 +168,18 @@ const projectUsesLocale = computed(() => data.value?.project.languages.includes(
   max-width: 40rem;
   margin: 0 auto;
 }
-.back {
+.crumbs {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.back,
+.edit-link {
   font-size: 0.85rem;
+}
+.edit-link {
+  font-weight: 600;
 }
 .head {
   display: flex;

@@ -3,7 +3,9 @@
     "browse": "Selaa",
     "edit": "Muokkaa",
     "backToProject": "Takaisin projektiin",
-    "backToProjects": "Kaikki projektit"
+    "backToProjects": "Kaikki projektit",
+    "viewPublished": "Katso julkaistu",
+    "draftNotPublic": "Luonnos — ei vielä julkinen"
   },
   "projects": {
     "title": "Projektit",
@@ -41,5 +43,9 @@
   "dialog": {
     "close": "Sulje",
     "view": "Katso"
+  },
+  "finna": {
+    "searchPlaceholder": "Hae Finnasta — arkistot, kirjastot ja museot…",
+    "hint": "Jokaisen tuloksen kohdalla näkyy käyttöoikeus. Vapaasti lisensoidut tiedostot kopioidaan tämän artikkelin kirjastoon, rajoitetut jäävät linkiksi Finnaan."
   }
 }

@@ -3,7 +3,9 @@
     "browse": "Browse",
     "edit": "Edit",
     "backToProject": "Back to project",
-    "backToProjects": "All projects"
+    "backToProjects": "All projects",
+    "viewPublished": "View published",
+    "draftNotPublic": "Draft — not public yet"
   },
   "projects": {
     "title": "Projects",
@@ -41,5 +43,9 @@
   "dialog": {
     "close": "Close",
     "view": "View"
+  },
+  "finna": {
+    "searchPlaceholder": "Search Finna — archives, libraries and museums…",
+    "hint": "Each result shows its rights status. Freely licensed files are copied into this article’s library; restricted ones are kept as a link to Finna."
   }
 }

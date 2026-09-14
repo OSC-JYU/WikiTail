@@ -10,6 +10,7 @@ import WikiWorldTab from '../components/editor/WikiWorldTab.vue';
 import MyLibraryTab from '../components/editor/MyLibraryTab.vue';
 import CommonsTab from '../components/editor/CommonsTab.vue';
 import LocalTab from '../components/editor/LocalTab.vue';
+import FinnaTab from '../components/editor/FinnaTab.vue';
 import TailEditor from '../components/editor/TailEditor.vue';
 import ArticlePreview from '../components/editor/ArticlePreview.vue';
 
@@ -17,8 +18,15 @@ const props = defineProps<{ slug: string; id: string }>();
 const router = useRouter();
 const library = useLibraryStore();
 
-// The Finna tab arrives with its adapter.
-const tabs = ['Article', 'Wiki world', 'Commons', 'Local', 'Article library', 'Tail'] as const;
+const tabs = [
+  'Article',
+  'Wiki world',
+  'Commons',
+  'Finna',
+  'Local',
+  'Article library',
+  'Tail',
+] as const;
 const activeTab = ref<(typeof tabs)[number]>('Article');
 
 const article = ref<Article | null>(null);
@@ -109,7 +117,22 @@ async function save(status: 'draft' | 'published') {
 
 <template>
   <div v-if="article">
-    <RouterLink :to="{ name: 'project', params: { slug } }">&larr; back to project</RouterLink>
+    <nav class="crumbs">
+      <RouterLink :to="{ name: 'project', params: { slug } }">&larr; back to project</RouterLink>
+      <!-- Only published articles exist publicly, so the link appears when there
+           is something to look at. -->
+      <RouterLink
+        v-if="article.status === 'published'"
+        class="view-link"
+        :to="{
+          name: 'browse-article',
+          params: { project: slug, language: article.language, article: article.slug },
+        }"
+      >
+        {{ $t('nav.viewPublished') }} &rarr;
+      </RouterLink>
+      <span v-else class="draft-note">{{ $t('nav.draftNotPublic') }}</span>
+    </nav>
 
     <input v-model="article.title" class="title-input" />
 
@@ -189,6 +212,10 @@ async function save(status: 'draft' | 'published') {
       <CommonsTab :article-id="article.id" />
     </section>
 
+    <section v-show="activeTab === 'Finna'">
+      <FinnaTab :article-id="article.id" :language="article.language" />
+    </section>
+
     <section v-show="activeTab === 'Local'">
       <LocalTab :article-id="article.id" />
     </section>
@@ -204,6 +231,20 @@ async function save(status: 'draft' | 'published') {
 </template>
 
 <style scoped>
+.crumbs {
+  display: flex;
+  align-items: baseline;
+  gap: 1rem;
+  flex-wrap: wrap;
+  font-size: 0.9rem;
+}
+.view-link {
+  font-weight: 600;
+}
+.draft-note {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
 .title-input {
   display: block;
   width: 100%;

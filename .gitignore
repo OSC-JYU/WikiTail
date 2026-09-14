@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.env
+*.local
+
+# server runtime data
+packages/server/data/
+packages/server/uploads/*
+!packages/server/uploads/.gitkeep
+
+# editor/OS
+.DS_Store
+.vscode/*
+!.vscode/extensions.json

@@ -9,7 +9,14 @@ import type { LibraryItemSummary } from '@wikitail/shared';
 const props = defineProps<{
   item: Pick<
     LibraryItemSummary,
-    'title' | 'author' | 'licenseName' | 'licenseUrl' | 'attributionText' | 'externalUrl' | 'sourceRevision'
+    | 'title'
+    | 'author'
+    | 'licenseName'
+    | 'licenseUrl'
+    | 'attributionText'
+    | 'externalUrl'
+    | 'sourceRevision'
+    | 'sourceType'
   >;
 }>();
 
@@ -18,6 +25,13 @@ const props = defineProps<{
  * attribution the source supplied is shown instead — it names them.
  */
 const hasStructuredCredit = () => Boolean(props.item.author);
+
+/**
+ * The revision describes a stored copy. Wikipedia is now read live, so quoting
+ * one next to the current article would say something untrue about what is on
+ * the screen.
+ */
+const showsRevision = () => Boolean(props.item.sourceRevision) && props.item.sourceType !== 'wikipedia';
 </script>
 
 <template>
@@ -46,7 +60,7 @@ const hasStructuredCredit = () => Boolean(props.item.author);
       </a>
     </template>
 
-    <span v-if="item.sourceRevision" class="revision">rev {{ item.sourceRevision }}</span>
+    <span v-if="showsRevision()" class="revision">rev {{ item.sourceRevision }}</span>
   </p>
 </template>
 

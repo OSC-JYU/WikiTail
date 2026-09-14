@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, watch } from 'vue';
+import { computed, ref, watch } from 'vue';
 import type { LibraryItem, LibraryItemSummary } from '@wikitail/shared';
 import { libraryApi } from '../../api/library';
 import { publicApi } from '../../api/public';
@@ -20,6 +20,17 @@ const props = defineProps<{
 }>();
 const emit = defineEmits<{ close: [] }>();
 
+/**
+ * Wikipedia articles are read from the source. Everything else — a Commons
+ * description, a Finna summary — is small enough to be worth holding, and is
+ * shown from what was stored.
+ */
+const livePage = computed(() =>
+  props.item?.sourceType === 'wikipedia' && props.item.externalUrl && !props.item.mediaUrl
+    ? props.item.externalUrl
+    : null,
+);
+
 const dialog = ref<HTMLDialogElement | null>(null);
 const full = ref<LibraryItem | null>(null);
 const loading = ref(false);
@@ -34,9 +45,10 @@ watch(
     }
 
     dialog.value?.showModal();
+    if (livePage.value) return;
 
-    // Bodies are fetched only when something is actually being read: a stored
-    // article runs to a couple of hundred kilobytes.
+    // Bodies are fetched only when something is actually being read, and only
+    // for sources that are not read live.
     loading.value = true;
     try {
       full.value =
@@ -62,6 +74,16 @@ function onClick(event: MouseEvent) {
     <div v-if="item" class="panel">
       <header>
         <strong>{{ item.title }}</strong>
+        <span class="spacer" />
+        <a
+          v-if="item.externalUrl"
+          :href="item.externalUrl"
+          target="_blank"
+          rel="noopener noreferrer"
+          class="source-link"
+        >
+          {{ $t('browse.viewSource') }} ↗
+        </a>
         <button class="close" :aria-label="$t('dialog.close')" @click="emit('close')">×</button>
       </header>
 
@@ -69,9 +91,25 @@ function onClick(event: MouseEvent) {
         <MediaPreview v-if="item.mediaUrl" :item="item" class="media" />
         <p v-if="item.description" class="description">{{ item.description }}</p>
 
-        <p v-if="loading" class="loading">…</p>
-        <!-- Sanitized server-side on import; see sources/wikipedia/sanitize.ts -->
-        <div v-else-if="full?.snapshotHtml" class="snapshot" v-html="full.snapshotHtml" />
+        <!--
+          Wikipedia is read live rather than from a stored copy: it renders its own
+          article far better than our sanitized version can, it is always current,
+          and Wikimedia permits framing (no X-Frame-Options, no frame-ancestors).
+        -->
+        <iframe
+          v-if="livePage"
+          :src="livePage"
+          :title="item.title"
+          class="live"
+          loading="lazy"
+          referrerpolicy="no-referrer"
+        />
+
+        <template v-else>
+          <p v-if="loading" class="loading">…</p>
+          <!-- Sanitized server-side on import; see sources/wikipedia/sanitize.ts -->
+          <div v-else-if="full?.snapshotHtml" class="snapshot" v-html="full.snapshotHtml" />
+        </template>
       </div>
 
       <LicenseBadge :item="item" />
@@ -128,6 +166,20 @@ header {
   font-size: 0.95rem;
   color: var(--text-muted);
   margin: 0.6rem 0 0;
+}
+.live {
+  width: 100%;
+  height: 72vh;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: #fff;
+}
+.spacer {
+  flex: 1;
+}
+.source-link {
+  font-size: 0.85rem;
+  white-space: nowrap;
 }
 .snapshot {
   margin-top: 0.75rem;

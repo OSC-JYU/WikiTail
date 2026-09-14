@@ -1,11 +1,5 @@
 import Boom from '@hapi/boom';
-import type {
-  Article,
-  ArticleStatus,
-  ArticleVersion,
-  TranslationGroup,
-  User,
-} from '@wikitail/shared';
+import type { Article, ArticleStatus, ArticleVersion, User } from '@wikitail/shared';
 import { forbidden, notFound } from '../../lib/errors.js';
 import { slugify } from '../../lib/slug.js';
 import { projectsRepository } from '../projects/repository.js';
@@ -13,10 +7,9 @@ import { assertLanguageAllowed } from '../projects/service.js';
 import { tailRepository } from '../tail/repository.js';
 import { articlesRepository } from './repository.js';
 
-/** What to render when a translation group has no version in the requested language. */
+/** A translation group either has the requested language or it does not. */
 export type ResolvedArticle =
   | { kind: 'match'; article: Article; versions: ArticleVersion[] }
-  | { kind: 'substitute'; article: Article; requestedLanguage: string; versions: ArticleVersion[] }
   | { kind: 'missing'; requestedLanguage: string; versions: ArticleVersion[] };
 
 function requireProject(projectId: number) {
@@ -42,26 +35,19 @@ export function listVersions(translationGroupId: number): ArticleVersion[] {
 }
 
 /**
- * Resolves a translation group for a reader in `language`, applying the author's
- * choice when that version does not exist: a substitute article if one was set,
- * otherwise nothing — the client shows the invitation to translate.
+ * Resolves a translation group for a reader in `language`. A missing version is
+ * reported as missing rather than quietly replaced by another language — writing
+ * the translation is the author's job, and the reader is told plainly.
  */
 export function resolveInLanguage(translationGroupId: number, language: string): ResolvedArticle {
-  const group = articlesRepository.findGroup(translationGroupId);
-  if (!group) notFound('Translation group');
+  if (!articlesRepository.findGroup(translationGroupId)) notFound('Translation group');
 
   const versions = articlesRepository.listVersions(translationGroupId);
   const match = articlesRepository.findInGroup(translationGroupId, language);
-  if (match) return { kind: 'match', article: match, versions };
 
-  if (group.fallbackArticleId) {
-    const substitute = articlesRepository.findById(group.fallbackArticleId);
-    if (substitute) {
-      return { kind: 'substitute', article: substitute, requestedLanguage: language, versions };
-    }
-  }
-
-  return { kind: 'missing', requestedLanguage: language, versions };
+  return match
+    ? { kind: 'match', article: match, versions }
+    : { kind: 'missing', requestedLanguage: language, versions };
 }
 
 export function createArticle(
@@ -118,24 +104,6 @@ export function createTranslation(
   }
 
   return translation;
-}
-
-export function setTranslationFallback(
-  actor: User,
-  translationGroupId: number,
-  articleId: number | null,
-): TranslationGroup {
-  const group = articlesRepository.findGroup(translationGroupId);
-  if (!group) notFound('Translation group');
-
-  if (articleId !== null) {
-    const article = getArticle(articleId);
-    if (article.translationGroupId !== translationGroupId) {
-      throw Boom.badRequest('The substitute must be a version of the same article');
-    }
-  }
-
-  return articlesRepository.setFallback(translationGroupId, articleId);
 }
 
 export function updateArticle(

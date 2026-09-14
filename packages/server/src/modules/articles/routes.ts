@@ -9,7 +9,6 @@ import {
   listArticlesForProject,
   listVersions,
   resolveInLanguage,
-  setTranslationFallback,
   updateArticle,
 } from './service.js';
 
@@ -110,23 +109,6 @@ export const articlesRoutesPlugin: Plugin<undefined> = {
       handler: (request) => {
         const { language } = request.query as { language: string };
         return resolveInLanguage(Number(request.params.id), language);
-      },
-    });
-
-    server.route({
-      method: 'PATCH',
-      path: '/api/translation-groups/{id}/fallback',
-      options: {
-        validate: {
-          payload: Joi.object({
-            fallbackArticleId: Joi.number().integer().allow(null).required(),
-          }),
-        },
-      },
-      handler: (request) => {
-        const actor = request.auth.credentials as unknown as User;
-        const { fallbackArticleId } = request.payload as { fallbackArticleId: number | null };
-        return setTranslationFallback(actor, Number(request.params.id), fallbackArticleId);
       },
     });
 

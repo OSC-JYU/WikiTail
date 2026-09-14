@@ -57,12 +57,9 @@ watch(locale, load);
           }"
         >
           <strong>{{ listing.article.title }}</strong>
-          <span v-if="listing.shownLanguage" class="note">
-            {{ $t('browse.shownIn', { language: languageName(listing.shownLanguage, locale) }) }}
-          </span>
         </RouterLink>
-        <!-- Nothing in this language and no substitute: keep it visible so the gap
-             is discoverable rather than silently hiding the article. -->
+        <!-- No version in this language: keep the entry visible so the gap is
+             discoverable rather than the article silently disappearing. -->
         <span v-else class="unavailable">
           {{ $t('browse.onlyIn', { languages: listing.availableLanguages.map((l) => languageName(l, locale)).join(', ') }) }}
         </span>

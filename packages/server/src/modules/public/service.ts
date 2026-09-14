@@ -36,10 +36,10 @@ export function getProject(slug: string): Project {
 }
 
 /**
- * Published content for a project, one entry per translation group, resolved for
- * the reader's language. Groups with no version in that language still appear —
- * carrying the languages they do exist in — so content stays discoverable rather
- * than vanishing when a translation is missing.
+ * Published content for a project, one entry per translation group, in the
+ * reader's language. Groups with no version in that language still appear,
+ * carrying the languages they do exist in, so a missing translation is visible
+ * rather than hidden.
  */
 export function listProjectContent(slug: string, language: string): BrowseListing[] {
   const project = getProject(slug);
@@ -50,25 +50,10 @@ export function listProjectContent(slug: string, language: string): BrowseListin
       .filter((version) => version.status === 'published');
 
     const match = published.find((version) => version.language === language);
-    if (match) {
-      return {
-        translationGroupId: id,
-        article: articlesRepository.findById(match.id)!,
-        shownLanguage: null,
-        availableLanguages: published.map((v) => v.language),
-      };
-    }
-
-    const group = articlesRepository.findGroup(id);
-    const substitute =
-      group?.fallbackArticleId && published.some((v) => v.id === group.fallbackArticleId)
-        ? articlesRepository.findById(group.fallbackArticleId)
-        : undefined;
 
     return {
       translationGroupId: id,
-      article: substitute ?? null,
-      shownLanguage: substitute?.language ?? null,
+      article: match ? articlesRepository.findById(match.id)! : null,
       availableLanguages: published.map((v) => v.language),
     };
   });

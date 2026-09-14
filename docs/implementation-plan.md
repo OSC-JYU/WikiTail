@@ -34,9 +34,9 @@ See [`idea.md`](../idea.md) for the original concept.
 - **External links** behave like normal browser links — `target="_blank" rel="noopener noreferrer"`.
 - **Multilingual**: each **project declares its set of languages**; articles may only be written in
   those, and imports fetch exactly those language versions. The same article can exist as linked
-  language versions, matched across wikis by Wikidata concept id. When a version is missing the author
-  decides what happens — by default an invitation to translate, or a substitute article of their
-  choosing. Language codes are free-form ISO codes — no fixed set, no DB enum. The UI is translatable,
+  language versions, matched across wikis by Wikidata concept id. Providing every language is the
+  author's job: a version that has not been written is reported as missing, never replaced by another
+  language. Language codes are free-form ISO codes — no fixed set, no DB enum. The UI is translatable,
   and the chosen UI language also selects which language version of the content you see.
   See [Multilingual design](#multilingual-design).
 
@@ -126,10 +126,7 @@ project_languages(project_id NOT NULL REFERENCES projects(id),
                   position INTEGER NOT NULL,       -- position 0 is the project's primary language
                   PRIMARY KEY (project_id, language))
 
-translation_groups(id PK, project_id NOT NULL REFERENCES projects(id),
-                   fallback_article_id NULL REFERENCES articles(id))
-                   -- NULL -> show the "translation missing" placeholder (default)
-                   -- set  -> show that article instead, in its own language
+translation_groups(id PK, project_id NOT NULL REFERENCES projects(id), created_at)
 
 articles(id PK, project_id NOT NULL REFERENCES projects(id), slug, title,
          language TEXT NOT NULL,                   -- must be one of the project's languages
@@ -162,10 +159,10 @@ Indices: `articles(project_id)`, `articles(status)`, `articles(translation_group
 `library_items(concept_id, language)`, `tail_entries(article_id, position)`.
 
 - `main_article_id` circularity: create project (NULL) → create its article → `UPDATE projects`.
-- `translation_groups` is a real table rather than a shared id on `articles`, because the group now
-  owns state of its own: the author's choice of what to show when a language version is missing.
-  Collapsing that choice into one nullable `fallback_article_id` avoids a separate mode enum — NULL
-  means placeholder, set means substitute.
+- `translation_groups` is a table rather than a shared id on `articles`. It briefly carried the
+  author's substitute choice, which justified it; that is gone, so it now holds only the grouping. It
+  stays because it gives `articles.translation_group_id` a real foreign key to point at — a pragmatic
+  call now rather than a principled one.
 - A project's primary language is `position = 0` in `project_languages`, so there is a single source
   of truth rather than a `default_language` column that could drift out of the set. The set must be
   non-empty; the project's own title and description stay single-valued (projects themselves are not
@@ -207,21 +204,19 @@ Slugs are per-language, so the Finnish version can live at a Finnish URL
 (`/projects/paikallishistoria/artikkelit/vanha-vesimylly`) rather than reusing the English slug.
 Uniqueness is therefore `(project_id, language, slug)`.
 
-### Missing translations are the author's call
+### Missing translations are reported, not papered over
 
-When a group has no version in the language being viewed, behaviour is chosen per group by the
-author:
+Providing an article in every one of the project's languages is the author's job. When a group has no
+version in the language being read, the reader is told so — "Translation missing — maybe you could
+help?" — and for a signed-in author that doubles as a link straight to writing it. A missing version
+is never silently replaced by another language, so the gap stays visible and the invitation to fill
+it stays honest.
 
-- **Default — invite a translation.** Show a "Translation missing — maybe you could help?" notice.
-  For a signed-in author this doubles as a call to action, linking straight to creating that
-  translation. An anonymous visitor just sees the notice, since they have nothing to act on.
-- **Substitute another version.** The author sets `fallback_article_id` to a specific article, and
-  readers in the missing language get that version instead, clearly marked as being in another
-  language.
+The same applies in listings: a group with no version in the reader's language still appears, marked
+with the languages it does exist in, rather than disappearing.
 
-One choice covers every missing language in the group. Per-target-language rules ("Finnish readers
-see Swedish, German readers see English") are deliberately out of scope — no evidence yet that the
-extra dimension earns its complexity.
+This is separate from *imported* content: a Wikipedia article may genuinely not exist in some
+language, and there the tail falls back to the version that was imported, labelled with its language.
 
 ### Language-aware search and import
 
@@ -317,11 +312,10 @@ Implementation notes:
 `translation_groups` with per-language slugs and authoring constrained to the project's languages;
 language-aware adapter search; Wikidata Q-id + langlink capture on import, auto-importing siblings for
 the project's languages; language passed through the Wikipedia client and sanitizer; the
-missing-translation placeholder and the author's substitute setting. UI for creating a translation of
-an existing article and switching between versions. **Deliverable**: the same article exists in
-Finnish and English, importing a Wikipedia page brings in both language versions linked by concept,
-and a group with a missing version shows either the invitation to translate or the author's chosen
-substitute.
+missing-translation notice. UI for creating a translation of an existing article and switching between
+versions. **Deliverable**: the same article exists in Finnish and English, importing a Wikipedia page
+brings in both language versions linked by concept, and a group with a missing version shows the
+invitation to translate.
 
 Sequenced before the editor and browse work deliberately: `articles.language` is schema-level, and
 Tail resolution and the public browse view both need to know an article's language. Retrofitting it
@@ -453,7 +447,7 @@ admin role management; upload size limits; loading/error states.
   `en:Watermill` and confirm `fi:Vesimylly` is imported alongside it sharing
   `concept_id = wikidata:Q185187`, and that the Finnish snapshot's links point at `fi.wikipedia.org`,
   not `en`. View a group with no Finnish version and confirm the "maybe you could help?" invitation;
-  set a substitute article and confirm that version is shown instead, marked as another language.
+  confirm the listing still shows the article, marked with the language it does exist in.
 - **M3**: write an article referencing a library item, add items to the Tail with commentary,
   drag-reorder, publish; confirm the Finnish article's Tail renders the Finnish snapshot.
 - **M4**: load the public browse URL in a mobile viewport with no `mail` header — drafts hidden,

@@ -14,8 +14,7 @@ const { db } = await import('../../db/connection.js');
 const { usersRepository } = await import('../users/repository.js');
 const { projectsRepository } = await import('../projects/repository.js');
 const { articlesRepository } = await import('./repository.js');
-const { createArticle, createTranslation, resolveInLanguage, setTranslationFallback } =
-  await import('./service.js');
+const { createArticle, createTranslation, resolveInLanguage } = await import('./service.js');
 
 const actor = usersRepository.upsertByEmail('tester@wikitail.local', 'admin');
 
@@ -30,9 +29,6 @@ function makeProject(languages: string[]) {
 }
 
 beforeEach(() => {
-  // Substitutes reference articles, so they have to be released before the
-  // articles can go — the same order any future "delete article" path will need.
-  db.prepare('UPDATE translation_groups SET fallback_article_id = NULL').run();
   db.prepare('DELETE FROM articles').run();
   db.prepare('DELETE FROM translation_groups').run();
 });
@@ -58,8 +54,16 @@ describe('article languages', () => {
 
   it('lets the same slug exist in different languages', () => {
     const project = makeProject(['fi', 'sv']);
-    const fi = createArticle(actor, project.id, { title: 'Sauna', bodyMarkdown: '', language: 'fi' });
-    const sv = createArticle(actor, project.id, { title: 'Sauna', bodyMarkdown: '', language: 'sv' });
+    const fi = createArticle(actor, project.id, {
+      title: 'Sauna',
+      bodyMarkdown: '',
+      language: 'fi',
+    });
+    const sv = createArticle(actor, project.id, {
+      title: 'Sauna',
+      bodyMarkdown: '',
+      language: 'sv',
+    });
     expect(fi.slug).toBe('sauna');
     expect(sv.slug).toBe('sauna');
     expect(fi.translationGroupId).not.toBe(sv.translationGroupId);
@@ -112,7 +116,7 @@ describe('resolving a group for a reader', () => {
     expect(resolved.kind === 'match' && resolved.article.id).toBe(fi.id);
   });
 
-  it('reports the version as missing when no fallback is set', () => {
+  it('reports a language with no version as missing', () => {
     const project = makeProject(['fi', 'en']);
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
 
@@ -121,44 +125,15 @@ describe('resolving a group for a reader', () => {
     expect(resolved.versions.map((v) => v.language)).toEqual(['fi']);
   });
 
-  it('substitutes the article the author chose', () => {
+  it('resolves to the translation once one is written', () => {
     const project = makeProject(['fi', 'en']);
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    setTranslationFallback(actor, fi.translationGroupId, fi.id);
-
-    const resolved = resolveInLanguage(fi.translationGroupId, 'en');
-    expect(resolved.kind).toBe('substitute');
-    expect(resolved.kind === 'substitute' && resolved.article.language).toBe('fi');
-    expect(resolved.kind === 'substitute' && resolved.requestedLanguage).toBe('en');
-  });
-
-  it('goes back to missing once the substitute is cleared', () => {
-    const project = makeProject(['fi', 'en']);
-    const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    setTranslationFallback(actor, fi.translationGroupId, fi.id);
-    setTranslationFallback(actor, fi.translationGroupId, null);
-
     expect(resolveInLanguage(fi.translationGroupId, 'en').kind).toBe('missing');
-  });
 
-  it('prefers a real translation over the substitute once one exists', () => {
-    const project = makeProject(['fi', 'en']);
-    const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    setTranslationFallback(actor, fi.translationGroupId, fi.id);
     const en = createTranslation(actor, fi.id, { language: 'en', title: 'Mill', bodyMarkdown: '' });
 
     const resolved = resolveInLanguage(fi.translationGroupId, 'en');
     expect(resolved.kind).toBe('match');
     expect(resolved.kind === 'match' && resolved.article.id).toBe(en.id);
-  });
-
-  it('refuses a substitute from a different article', () => {
-    const project = makeProject(['fi', 'en']);
-    const mill = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    const sauna = createArticle(actor, project.id, { title: 'Sauna', bodyMarkdown: '' });
-
-    expect(() => setTranslationFallback(actor, mill.translationGroupId, sauna.id)).toThrow(
-      /version of the same article/,
-    );
   });
 });

@@ -48,9 +48,6 @@ const insertStmt = db.prepare(`
 `);
 const insertGroupStmt = db.prepare('INSERT INTO translation_groups (project_id) VALUES (?)');
 const findGroupStmt = db.prepare('SELECT * FROM translation_groups WHERE id = ?');
-const setFallbackStmt = db.prepare(
-  'UPDATE translation_groups SET fallback_article_id = ? WHERE id = ?',
-);
 const updateStmt = db.prepare(`
   UPDATE articles
   SET title = @title, body_markdown = @bodyMarkdown, status = @status, updated_at = datetime('now')
@@ -82,17 +79,8 @@ export const articlesRepository = {
   },
 
   findGroup(id: number): TranslationGroup | undefined {
-    const row = findGroupStmt.get(id) as
-      | { id: number; project_id: number; fallback_article_id: number | null }
-      | undefined;
-    return row
-      ? { id: row.id, projectId: row.project_id, fallbackArticleId: row.fallback_article_id }
-      : undefined;
-  },
-
-  setFallback(translationGroupId: number, articleId: number | null): TranslationGroup {
-    setFallbackStmt.run(articleId, translationGroupId);
-    return this.findGroup(translationGroupId)!;
+    const row = findGroupStmt.get(id) as { id: number; project_id: number } | undefined;
+    return row ? { id: row.id, projectId: row.project_id } : undefined;
   },
 
   /** Creates an article, opening a new translation group unless joining one. */

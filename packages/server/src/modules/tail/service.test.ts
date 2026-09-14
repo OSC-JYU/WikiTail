@@ -54,7 +54,6 @@ function makeItem(opts: {
 
 beforeEach(() => {
   db.prepare('DELETE FROM tail_entries').run();
-  db.prepare('UPDATE translation_groups SET fallback_article_id = NULL').run();
   db.prepare('DELETE FROM articles').run();
   db.prepare('DELETE FROM translation_groups').run();
   db.prepare('DELETE FROM library_items').run();

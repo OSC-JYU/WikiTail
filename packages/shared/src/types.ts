@@ -37,11 +37,10 @@ export interface Article {
   updatedAt: string;
 }
 
+/** Ties the language versions of one article together. */
 export interface TranslationGroup {
   id: number;
   projectId: number;
-  /** null: show the "translation missing" invitation; set: show that article instead. */
-  fallbackArticleId: number | null;
 }
 
 /** One language version within a translation group, for switching between versions. */
@@ -112,10 +111,8 @@ export interface TailEntry {
 /** One translation group as a public reader in a given language sees it in a listing. */
 export interface BrowseListing {
   translationGroupId: number;
-  /** null when nothing is shown in this language and no substitute was set. */
+  /** null when this article has no version in the requested language. */
   article: Article | null;
-  /** Set when the shown article is not in the requested language. */
-  shownLanguage: string | null;
   availableLanguages: string[];
 }
 

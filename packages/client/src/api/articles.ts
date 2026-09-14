@@ -1,4 +1,4 @@
-import type { Article, ArticleStatus, ArticleVersion, TranslationGroup } from '@wikitail/shared';
+import type { Article, ArticleStatus, ArticleVersion } from '@wikitail/shared';
 import { api } from './client';
 
 export const articlesApi = {
@@ -10,8 +10,4 @@ export const articlesApi = {
     id: number,
     input: { language: string; title: string; bodyMarkdown?: string; copyTail?: boolean },
   ) => api.post<Article>(`/articles/${id}/translations`, input),
-  setFallback: (translationGroupId: number, fallbackArticleId: number | null) =>
-    api.patch<TranslationGroup>(`/translation-groups/${translationGroupId}/fallback`, {
-      fallbackArticleId,
-    }),
 };

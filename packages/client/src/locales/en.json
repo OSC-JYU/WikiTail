@@ -25,8 +25,7 @@
     "missingTitle": "Translation missing",
     "missingBody": "This article has not been written in {language} yet. Maybe you could help?",
     "missingAvailable": "It is available in: {languages}",
-    "startTranslation": "Write the {language} version",
-    "substituteNotice": "No {requested} version yet — showing the {shown} one."
+    "startTranslation": "Write the {language} version"
   },
   "language": {
     "label": "Language"

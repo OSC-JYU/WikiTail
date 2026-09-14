@@ -35,7 +35,7 @@ const segments = computed(() => {
   return splitArticleBody(data.value.article.bodyMarkdown).map((segment) =>
     segment.type === 'text'
       ? { kind: 'html' as const, html: renderMarkdown(segment.text) }
-      : { kind: 'embed' as const, id: segment.libraryItemId },
+      : { kind: 'embed' as const, id: segment.libraryItemId, label: segment.label },
   );
 });
 
@@ -108,6 +108,7 @@ const projectUsesLocale = computed(() => data.value?.project.languages.includes(
             {{ $t('browse.viewSource') }}
           </a>
         </figure>
+        <p v-else-if="segment.label" class="missing-embed">{{ segment.label }}</p>
       </template>
     </article>
 
@@ -194,6 +195,10 @@ h1 {
   border-left: 3px solid var(--border);
   background: color-mix(in srgb, var(--text) 4%, transparent);
   font-size: 0.95rem;
+}
+.missing-embed {
+  color: var(--text-muted);
+  font-size: 0.9rem;
 }
 .caption {
   flex-basis: 100%;

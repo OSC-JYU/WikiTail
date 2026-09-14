@@ -15,6 +15,7 @@ const segments = computed(() =>
       : {
           kind: 'embed' as const,
           id: segment.libraryItemId,
+          label: segment.label,
           item: library.items.find((i) => i.id === segment.libraryItemId),
         },
   ),
@@ -39,7 +40,9 @@ const segments = computed(() =>
           source
         </a>
       </div>
-      <div v-else class="embed missing">Library item {{ segment.id }} is not in your library</div>
+      <div v-else class="embed missing">
+        {{ segment.label ?? `Library item ${segment.id}` }} is not in your library
+      </div>
     </template>
     <p v-if="segments.length === 0" class="empty">Nothing to preview yet.</p>
   </div>

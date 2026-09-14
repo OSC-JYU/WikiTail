@@ -172,8 +172,10 @@ Indices: `articles(project_id)`, `articles(status)`, `articles(translation_group
   of truth rather than a `default_language` column that could drift out of the set. The set must be
   non-empty; the project's own title and description stay single-valued (projects themselves are not
   translated — see [Decisions](#decisions)).
-- Article bodies reference library content via a `[[library:N]]` shortcode resolved by a `markdown-it`
-  plugin at render time; markdown stays the single source of truth.
+- Article bodies reference library content via a `[[library:N|label]]` shortcode; markdown stays the
+  single source of truth. The id resolves and the label is ignored when looking up, so it can go stale
+  harmlessly — it is there to keep the raw markdown readable and to say what a body meant if the
+  library row behind it is ever lost. A bare `[[library:N]]` stays valid.
 - Duplicate library items within one article's Tail are allowed (independent rows, own commentary).
 - Tail ordering is manual (`position` integer), reorderable by drag-and-drop.
 - Snapshot HTML/JSON live in SQLite `TEXT`; binary media goes to disk under `uploads/`.

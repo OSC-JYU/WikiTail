@@ -5,6 +5,7 @@ import { libraryShortcode, type Article, type ArticleVersion, type Project } fro
 import { articlesApi } from '../api/articles';
 import { projectsApi } from '../api/projects';
 import { tailApi } from '../api/tail';
+import { useLibraryStore } from '../stores/library';
 import WikiWorldTab from '../components/editor/WikiWorldTab.vue';
 import MyLibraryTab from '../components/editor/MyLibraryTab.vue';
 import CommonsTab from '../components/editor/CommonsTab.vue';
@@ -14,6 +15,7 @@ import ArticlePreview from '../components/editor/ArticlePreview.vue';
 
 const props = defineProps<{ slug: string; id: string }>();
 const router = useRouter();
+const library = useLibraryStore();
 
 // The Finna tab arrives with its adapter.
 const tabs = ['Article', 'Wiki world', 'Commons', 'Local', 'My Library', 'Tail'] as const;
@@ -42,12 +44,19 @@ async function load(id: number) {
 onMounted(() => load(Number(props.id)));
 watch(() => props.id, (id) => load(Number(id)));
 
-/** Appends a shortcode so the item renders inline in the article body. */
+/**
+ * Appends a shortcode so the item renders inline in the article body. The label
+ * is what makes the raw markdown readable, and what survives if the library row
+ * is ever lost — the external id says more than a title where there is one.
+ */
 function insertLibraryRef(libraryItemId: number) {
   if (!article.value) return;
+  const item = library.items.find((candidate) => candidate.id === libraryItemId);
   const body = article.value.bodyMarkdown;
   article.value.bodyMarkdown =
-    (body.trim() ? `${body.replace(/\s+$/, '')}\n\n` : '') + libraryShortcode(libraryItemId) + '\n';
+    (body.trim() ? `${body.replace(/\s+$/, '')}\n\n` : '') +
+    libraryShortcode(libraryItemId, item?.externalId ?? item?.title) +
+    '\n';
   activeTab.value = 'Article';
 }
 

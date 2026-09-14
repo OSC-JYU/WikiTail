@@ -49,3 +49,33 @@ describe('referencedLibraryIds', () => {
     expect(referencedLibraryIds(`text ${libraryShortcode(42)}`)).toEqual([42]);
   });
 });
+
+describe('readable labels', () => {
+  // The label exists so a body still says what it meant if the library row is
+  // lost; the id is what actually resolves.
+  it('carries the label alongside the id', () => {
+    expect(splitArticleBody('[[library:12|fi:Vesimylly]]')).toEqual([
+      { type: 'library', libraryItemId: 12, label: 'fi:Vesimylly' },
+    ]);
+  });
+
+  it('still accepts a bare id, so existing bodies keep working', () => {
+    expect(splitArticleBody('[[library:12]]')).toEqual([{ type: 'library', libraryItemId: 12 }]);
+  });
+
+  it('resolves by id even when the label is wrong or stale', () => {
+    expect(referencedLibraryIds('[[library:12|something else entirely]]')).toEqual([12]);
+  });
+
+  it('builds a shortcode with and without a label', () => {
+    expect(libraryShortcode(12, 'commons:File:Stone.jpg')).toBe(
+      '[[library:12|commons:File:Stone.jpg]]',
+    );
+    expect(libraryShortcode(12)).toBe('[[library:12]]');
+    expect(libraryShortcode(12, '   ')).toBe('[[library:12]]');
+  });
+
+  it('strips characters from a label that would break the shortcode', () => {
+    expect(libraryShortcode(12, 'a|b]c')).toBe('[[library:12|abc]]');
+  });
+});

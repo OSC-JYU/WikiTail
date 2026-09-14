@@ -93,6 +93,12 @@ export const libraryRepository = {
     return row ? toFull(row) : undefined;
   },
 
+  /** Metadata without the snapshot body — for listing and tail resolution. */
+  findSummaryById(id: number): LibraryItemSummary | undefined {
+    const row = findSummaryByIdStmt.get(id) as LibraryItemRow | undefined;
+    return row ? toSummary(row) : undefined;
+  },
+
   findByExternalId(
     ownerId: number,
     sourceType: SourceType,

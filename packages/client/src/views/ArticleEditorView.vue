@@ -1,17 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Article, ArticleVersion, Project } from '@wikitail/shared';
+import { libraryShortcode, type Article, type ArticleVersion, type Project } from '@wikitail/shared';
 import { articlesApi } from '../api/articles';
 import { projectsApi } from '../api/projects';
 import WikiWorldTab from '../components/editor/WikiWorldTab.vue';
 import MyLibraryTab from '../components/editor/MyLibraryTab.vue';
+import TailEditor from '../components/editor/TailEditor.vue';
+import ArticlePreview from '../components/editor/ArticlePreview.vue';
 
 const props = defineProps<{ slug: string; id: string }>();
 const router = useRouter();
 
 // Commons, Finna and Local tabs arrive with their adapters in later milestones.
-const tabs = ['Article', 'Wiki world', 'My Library'] as const;
+const tabs = ['Article', 'Wiki world', 'My Library', 'Tail'] as const;
 const activeTab = ref<(typeof tabs)[number]>('Article');
 
 const article = ref<Article | null>(null);
@@ -36,6 +38,15 @@ async function load(id: number) {
 
 onMounted(() => load(Number(props.id)));
 watch(() => props.id, (id) => load(Number(id)));
+
+/** Appends a shortcode so the item renders inline in the article body. */
+function insertLibraryRef(libraryItemId: number) {
+  if (!article.value) return;
+  const body = article.value.bodyMarkdown;
+  article.value.bodyMarkdown =
+    (body.trim() ? `${body.replace(/\s+$/, '')}\n\n` : '') + libraryShortcode(libraryItemId) + '\n';
+  activeTab.value = 'Article';
+}
 
 async function addTranslation(language: string) {
   if (!article.value) return;
@@ -106,12 +117,15 @@ async function save(status: 'draft' | 'published') {
     </nav>
 
     <section v-show="activeTab === 'Article'">
-      <textarea
-        v-model="article.bodyMarkdown"
-        class="body-input"
-        rows="16"
-        placeholder="Write in markdown..."
-      />
+      <div class="editor-split">
+        <textarea
+          v-model="article.bodyMarkdown"
+          class="body-input"
+          rows="18"
+          placeholder="Write in markdown… use [[library:N]] to embed library content"
+        />
+        <ArticlePreview :body="article.bodyMarkdown" />
+      </div>
       <div class="actions">
         <button :disabled="saving" @click="save('draft')">Save draft</button>
         <button :disabled="saving" @click="save('published')">Publish</button>
@@ -128,7 +142,11 @@ async function save(status: 'draft' | 'published') {
     </section>
 
     <section v-show="activeTab === 'My Library'">
-      <MyLibraryTab />
+      <MyLibraryTab @insert="insertLibraryRef" />
+    </section>
+
+    <section v-show="activeTab === 'Tail'">
+      <TailEditor :article-id="article.id" :language="article.language" />
     </section>
   </div>
 </template>
@@ -188,6 +206,17 @@ async function save(status: 'draft' | 'published') {
   color: var(--text);
   border-bottom-color: currentColor;
   font-weight: 500;
+}
+.editor-split {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  align-items: start;
+}
+@media (max-width: 720px) {
+  .editor-split {
+    grid-template-columns: 1fr;
+  }
 }
 .body-input {
   display: block;

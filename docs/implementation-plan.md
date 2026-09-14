@@ -1,6 +1,6 @@
 # Wikitail — Implementation Plan
 
-Status: **M0, M1 and M2 complete.** M3 (editor and Tail curation) is next.
+Status: **M0-M3 complete.** M4 (public browse view and UI translation) is next.
 
 Wikitail is a self-hosted, multi-user app for writing local articles (markdown) enriched with
 content imported from external "wiki world" sources — Wikipedia first, then Wikimedia Commons,
@@ -341,14 +341,24 @@ Implementation notes:
 - The sanitizer's hardcoded wiki host is fixed: snapshots now resolve links against their own
   language's wiki (verified — a `fi` snapshot links only to `fi.wikipedia.org`).
 
-### M3 — Editor and Tail curation ⬅ next
+### M3 — Editor and Tail curation ✅ done
 
-Markdown editor (`markdown-it`, `html: false`) with live preview and the `[[library:N]]` shortcode
-plugin; `TailEditor.vue` with drag-reorder; `tail_entries` CRUD, resolving each entry to the library
-item matching the article's language. **Deliverable**: full authoring loop — article references
-library items, Tail curated with commentary, article publishable.
+Markdown editor (`markdown-it`, `html: false`) with live preview and `[[library:N]]` embeds;
+`TailEditor.vue` with drag-reorder; `tail_entries` CRUD, resolving each entry to the library item
+matching the article's language. **Delivered**: full authoring loop — article references library
+items, Tail curated with commentary, article publishable.
 
-### M4 — Public browse view (mobile-first) + UI translation
+Implementation notes:
+
+- Markdown renders on the client only, so there is one implementation for both the editor preview and
+  (in M4) browse. `markdown-it` moved from the server, which no longer renders anything.
+- Rather than injecting components into `v-html`, the body is split into markdown runs and embeds
+  (`splitArticleBody` in `shared`), each rendered in its own way. Embeds are block-level: a shortcode
+  inside a list item will not render as part of that list.
+- Tails are **per article version**, not per translation group — see
+  [Open questions](#open-questions), since it means a translation starts with an empty tail.
+
+### M4 — Public browse view (mobile-first) + UI translation ⬅ next
 
 `public` routes (`auth: false`, published only); `BrowseArticleView` + `ArticleFeed`/`TailItemCard`;
 mobile-first layout. `vue-i18n` with locale files and a language switcher, with the chosen locale
@@ -410,6 +420,13 @@ admin role management; upload size limits; loading/error states.
 
 - Exact upload size limits — current defaults are placeholders.
 - Whether a derived `article_library_links` table is needed for "where is item X used" queries.
+- **Should a Tail be shared across language versions?** Entries currently belong to one article
+  version, so translating an article gives it an empty tail and the curation is done again per
+  language. Sharing the tail across the translation group would fix that, but commentary is written in
+  a language — Finnish notes would surface on the English version. Options: keep per-version; share
+  the tail with per-language commentary (extra table, extra UI); or keep per-version but offer to copy
+  the source tail when creating a translation, commentary included, as a draft to translate. The last
+  is cheapest on the current schema.
 - **Translating an existing article**: start the new version blank, or pre-fill with the source
   language's markdown as a starting point for the translator?
 - **Project index with missing translations.** An article page has a clear rule now (placeholder or

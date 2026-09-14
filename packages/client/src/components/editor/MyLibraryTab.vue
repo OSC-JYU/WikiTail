@@ -5,6 +5,8 @@ import { libraryApi } from '../../api/library';
 import { useLibraryStore } from '../../stores/library';
 import LicenseBadge from '../common/LicenseBadge.vue';
 
+const emit = defineEmits<{ insert: [libraryItemId: number] }>();
+
 const library = useLibraryStore();
 const selected = ref<LibraryItem | null>(null);
 const loading = ref(false);
@@ -34,13 +36,18 @@ async function preview(id: number) {
 
   <ul class="items">
     <li v-for="item in library.items" :key="item.id">
-      <button class="row" @click="preview(item.id)">
-        <span class="title">{{ item.title }}</span>
-        <span class="meta">
-          <span v-if="item.language" class="lang">{{ item.language }}</span>
-          <span class="source">{{ item.sourceType }}</span>
-        </span>
-      </button>
+      <div class="row-wrap">
+        <button class="row" @click="preview(item.id)">
+          <span class="title">{{ item.title }}</span>
+          <span class="meta">
+            <span v-if="item.language" class="lang">{{ item.language }}</span>
+            <span class="source">{{ item.sourceType }}</span>
+          </span>
+        </button>
+        <button class="insert" title="Embed in the article body" @click="emit('insert', item.id)">
+          Insert
+        </button>
+      </div>
 
       <div v-if="selected?.id === item.id" class="preview">
         <LicenseBadge :item="item" />
@@ -61,6 +68,16 @@ async function preview(id: number) {
 }
 .items > li {
   border-bottom: 1px solid var(--border);
+}
+.row-wrap {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.insert {
+  font-size: 0.8rem;
+  padding: 0.2rem 0.5rem;
+  flex-shrink: 0;
 }
 .row {
   display: flex;

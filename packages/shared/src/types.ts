@@ -109,6 +109,16 @@ export interface TailEntry {
   createdAt: string;
 }
 
+/** A tail entry with its library item already resolved to the article's language. */
+export interface TailEntryView extends TailEntry {
+  item: LibraryItemSummary;
+  /**
+   * Set when the article's language has no version of this item, so a different
+   * language is being shown — the reader should be told which.
+   */
+  shownInOtherLanguage: boolean;
+}
+
 /** Result of a search against a source adapter, before import. */
 export interface SourceSearchResult {
   externalId: string;

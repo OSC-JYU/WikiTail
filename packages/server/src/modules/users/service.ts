@@ -11,6 +11,25 @@ export function resolveIdentity(email: string): User {
   return usersRepository.upsertByEmail(normalized, role);
 }
 
+/**
+ * Adds someone before they have ever signed in. Sign-in itself is the proxy's
+ * job — this only creates the local row, so their role is already right when the
+ * `mail` header first arrives for that address.
+ */
+export function addUser(actor: User, email: string, role: UserRole): User {
+  if (actor.role !== 'admin') forbidden('Only admins can add users');
+
+  const normalized = email.trim().toLowerCase();
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalized)) {
+    throw Boom.badRequest(`"${email}" does not look like an email address`);
+  }
+  if (usersRepository.findByEmail(normalized)) {
+    throw Boom.conflict(`${normalized} is already here`);
+  }
+
+  return usersRepository.upsertByEmail(normalized, role);
+}
+
 export function listUsers(actor: User): User[] {
   if (actor.role !== 'admin') forbidden('Only admins can list users');
   return usersRepository.list();

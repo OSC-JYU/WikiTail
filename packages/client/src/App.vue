@@ -1,12 +1,20 @@
 <script setup lang="ts">
-import { onMounted } from 'vue';
+import { computed, onMounted } from 'vue';
+import { useRoute } from 'vue-router';
 import { useI18n } from 'vue-i18n';
 import { useAuthStore } from './stores/auth';
 import logo from './assets/wikitail-logo.png';
 import LanguageSwitcher from './components/common/LanguageSwitcher.vue';
 
 const auth = useAuthStore();
+const route = useRoute();
 const { locale } = useI18n();
+
+/**
+ * Reading stays a single narrow column — browsing is mobile-first. Editing is a
+ * desktop job with a source pane and a preview side by side, so it gets the width.
+ */
+const wideLayout = computed(() => route.name === 'article-edit');
 
 onMounted(() => {
   document.documentElement.lang = locale.value;
@@ -26,7 +34,7 @@ onMounted(() => {
       <span v-if="auth.user" class="user">{{ auth.user.email }}</span>
     </div>
   </header>
-  <main>
+  <main :class="{ wide: wideLayout }">
     <RouterView />
   </main>
 </template>
@@ -75,5 +83,8 @@ main {
   max-width: 46rem;
   margin: 0 auto;
   padding: 1rem;
+}
+main.wide {
+  max-width: 88rem;
 }
 </style>

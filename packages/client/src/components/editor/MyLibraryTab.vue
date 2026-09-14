@@ -65,7 +65,13 @@ async function saveDescription(item: LibraryItemSummary) {
     <li v-for="item in library.items" :key="item.id">
       <div class="row-wrap">
         <button class="row" @click="preview(item.id)">
-          <span class="title">{{ item.title }}</span>
+          <img v-if="item.mediaKind === 'image' && item.mediaUrl" :src="item.mediaUrl" alt="" class="thumb" />
+          <span class="text">
+            <span class="title">{{ item.title }}</span>
+            <!-- Shown here so a missing description is obvious rather than buried. -->
+            <span v-if="item.description" class="description-preview">{{ item.description }}</span>
+            <span v-else class="description-missing">{{ $t('credit.addDescription') }}</span>
+          </span>
           <span class="meta">
             <span v-if="item.language" class="lang">{{ item.language }}</span>
             <span class="source">{{ item.sourceType }}</span>
@@ -136,10 +142,33 @@ async function saveDescription(item: LibraryItemSummary) {
   padding: 0.2rem 0.5rem;
   flex-shrink: 0;
 }
+.thumb {
+  width: 46px;
+  height: 46px;
+  object-fit: cover;
+  border-radius: 3px;
+  flex-shrink: 0;
+}
+.text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  flex: 1;
+  min-width: 0;
+}
+.description-preview,
+.description-missing {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+.description-missing {
+  font-style: italic;
+  opacity: 0.75;
+}
 .row {
   display: flex;
   justify-content: space-between;
-  align-items: baseline;
+  align-items: center;
   gap: 1rem;
   width: 100%;
   padding: 0.6rem 0;

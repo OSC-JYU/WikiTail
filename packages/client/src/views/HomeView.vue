@@ -14,12 +14,32 @@ const error = ref<string | null>(null);
 
 const users = ref<User[]>([]);
 const roleError = ref<string | null>(null);
+const newUserEmail = ref('');
+const newUserRole = ref<UserRole>('author');
+const addingUser = ref(false);
 
 onMounted(async () => {
   await projects.fetchAll();
   // Only admins may list users; for anyone else this simply stays empty.
   if (auth.isAdmin) users.value = await usersApi.list();
 });
+
+async function addUser() {
+  if (!newUserEmail.value.trim()) return;
+  addingUser.value = true;
+  roleError.value = null;
+  try {
+    users.value = [...users.value, await usersApi.add(newUserEmail.value, newUserRole.value)].sort(
+      (a, b) => a.email.localeCompare(b.email),
+    );
+    newUserEmail.value = '';
+    newUserRole.value = 'author';
+  } catch (e) {
+    roleError.value = e instanceof Error ? e.message : 'Could not add that person';
+  } finally {
+    addingUser.value = false;
+  }
+}
 
 async function setRole(user: User, role: UserRole) {
   roleError.value = null;
@@ -68,9 +88,20 @@ async function createProject() {
     <h2>People</h2>
     <p class="hint">
       Sign-in is handled elsewhere; roles are set here. Admins can create projects and manage
-      languages — authors write articles.
+      languages — authors write articles. Adding someone here sets their role in advance, so it is
+      already right the first time they sign in.
     </p>
     <p v-if="roleError" class="error">{{ roleError }}</p>
+
+    <form class="add-user" @submit.prevent="addUser">
+      <input v-model="newUserEmail" type="email" placeholder="name@example.org" />
+      <select v-model="newUserRole">
+        <option value="author">author</option>
+        <option value="admin">admin</option>
+      </select>
+      <button type="submit" :disabled="addingUser">Add person</button>
+    </form>
+
     <ul>
       <li v-for="user in users" :key="user.id">
         <span class="email">{{ user.email }}</span>
@@ -108,6 +139,17 @@ async function createProject() {
   margin-top: 2.5rem;
   border-top: 1px solid var(--border);
   padding-top: 1rem;
+}
+.add-user {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+  flex-wrap: wrap;
+}
+.add-user input {
+  flex: 1;
+  min-width: 14rem;
+  padding: 0.45rem;
 }
 .people ul {
   list-style: none;

@@ -35,6 +35,7 @@
     "descriptionLabel": "Description",
     "descriptionPlaceholder": "Describe this image…",
     "save": "Save",
-    "licence": "Licence"
+    "licence": "Licence",
+    "addDescription": "Add a description…"
   }
 }

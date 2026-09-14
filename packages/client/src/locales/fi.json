@@ -35,6 +35,7 @@
     "descriptionLabel": "Kuvaus",
     "descriptionPlaceholder": "Kuvaile tätä kuvaa…",
     "save": "Tallenna",
-    "licence": "Lisenssi"
+    "licence": "Lisenssi",
+    "addDescription": "Lisää kuvaus…"
   }
 }

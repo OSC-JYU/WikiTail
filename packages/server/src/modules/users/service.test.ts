@@ -8,7 +8,7 @@ process.env.DB_PATH = dbPath;
 
 const { db } = await import('../../db/connection.js');
 const { usersRepository } = await import('./repository.js');
-const { listUsers, setUserRole } = await import('./service.js');
+const { addUser, listUsers, setUserRole } = await import('./service.js');
 
 const admin = usersRepository.upsertByEmail('admin@wikitail.local', 'admin');
 const author = usersRepository.upsertByEmail('author@wikitail.local', 'author');
@@ -16,6 +16,31 @@ const author = usersRepository.upsertByEmail('author@wikitail.local', 'author');
 afterAll(() => {
   db.close();
   for (const suffix of ['', '-wal', '-shm']) fs.rmSync(dbPath + suffix, { force: true });
+});
+
+describe('adding people', () => {
+  // Sign-in is the proxy's job; this only sets the role up front so it is right
+  // the first time that address arrives.
+  it('creates someone who has never signed in', () => {
+    const added = addUser(admin, 'New.Person@Example.org', 'author');
+    expect(added.email).toBe('new.person@example.org');
+    expect(added.role).toBe('author');
+    expect(listUsers(admin).some((u) => u.email === 'new.person@example.org')).toBe(true);
+  });
+
+  it('refuses a duplicate rather than silently resetting their role', () => {
+    addUser(admin, 'dup@example.org', 'admin');
+    expect(() => addUser(admin, 'dup@example.org', 'author')).toThrow(/already here/);
+    expect(listUsers(admin).find((u) => u.email === 'dup@example.org')?.role).toBe('admin');
+  });
+
+  it('refuses something that is not an email address', () => {
+    expect(() => addUser(admin, 'not an email', 'author')).toThrow(/does not look like/);
+  });
+
+  it('refuses a non-admin', () => {
+    expect(() => addUser(author, 'x@example.org', 'author')).toThrow(/Only admins/);
+  });
 });
 
 describe('managing roles', () => {

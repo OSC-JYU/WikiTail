@@ -1,7 +1,13 @@
 import type { Plugin, Server } from '@hapi/hapi';
 import Joi from 'joi';
-import type { User } from '@wikitail/shared';
-import { createProject, getProjectBySlug, listProjects, setProjectLanguages } from './service.js';
+import type { SnapshotMode, User } from '@wikitail/shared';
+import {
+  createProject,
+  getProjectBySlug,
+  listProjects,
+  setProjectLanguages,
+  setSnapshotMode,
+} from './service.js';
 
 export const projectsRoutesPlugin: Plugin<undefined> = {
   name: 'wikitail-projects-routes',
@@ -38,6 +44,26 @@ export const projectsRoutesPlugin: Plugin<undefined> = {
           languages?: string[];
         };
         return createProject(actor, { title, description: description ?? null, languages });
+      },
+    });
+
+    server.route({
+      method: 'PUT',
+      path: '/api/projects/{slug}/snapshot-mode',
+      options: {
+        validate: {
+          payload: Joi.object({
+            snapshotMode: Joi.string().valid('hard_copy', 'live_link').required(),
+          }),
+        },
+      },
+      handler: (request) => {
+        const { snapshotMode } = request.payload as { snapshotMode: SnapshotMode };
+        return setSnapshotMode(
+          request.auth.credentials as unknown as User,
+          request.params.slug as string,
+          snapshotMode,
+        );
       },
     });
 

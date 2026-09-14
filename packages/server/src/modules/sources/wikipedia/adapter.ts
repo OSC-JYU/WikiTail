@@ -60,24 +60,28 @@ export const wikipediaAdapter: SourceAdapter = {
     };
   },
 
-  async importItem(externalId) {
+  async importItem(externalId, opts) {
     const { language, title } = parseExternalId(externalId);
-    const [{ html, revision }, rights, concept] = await Promise.all([
-      fetchArticleHtml(title, language),
+    const keepCopy = opts?.includeBody !== false;
+
+    // With links only there is nothing to sanitize or store, so the 260KB fetch
+    // is skipped entirely rather than fetched and thrown away.
+    const [rights, concept, body] = await Promise.all([
       fetchRightsInfo(language),
       fetchConcept(title, language),
+      keepCopy ? fetchArticleHtml(title, language) : undefined,
     ]);
 
     return {
       sourceType: 'wikipedia',
       externalId,
       externalUrl: articleUrl(title, language),
-      sourceRevision: revision,
+      sourceRevision: body?.revision,
       language,
       conceptId: concept.wikibaseItem ? `wikidata:${concept.wikibaseItem}` : undefined,
       siblings: toSiblingIds(concept.langlinks),
       title,
-      html: sanitizeArticleHtml(html, title, language),
+      html: body ? sanitizeArticleHtml(body.html, title, language) : undefined,
       licenseName: rights.text,
       licenseUrl: rights.url,
       author: 'Wikipedia contributors',

@@ -1,4 +1,4 @@
-import type { Article, Project } from '@wikitail/shared';
+import type { Article, Project, SnapshotMode } from '@wikitail/shared';
 import { api } from './client';
 
 export const projectsApi = {
@@ -8,6 +8,8 @@ export const projectsApi = {
     api.post<Project>('/projects', input),
   setLanguages: (slug: string, languages: string[]) =>
     api.put<Project>(`/projects/${slug}/languages`, { languages }),
+  setSnapshotMode: (slug: string, snapshotMode: SnapshotMode) =>
+    api.put<Project>(`/projects/${slug}/snapshot-mode`, { snapshotMode }),
   listArticles: (slug: string, language?: string) =>
     api.get<Article[]>(`/projects/${slug}/articles${language ? `?language=${language}` : ''}`),
   createArticle: (slug: string, input: { title: string; bodyMarkdown?: string; language?: string }) =>

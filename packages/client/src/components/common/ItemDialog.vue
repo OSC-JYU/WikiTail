@@ -21,12 +21,12 @@ const props = defineProps<{
 const emit = defineEmits<{ close: [] }>();
 
 /**
- * Wikipedia articles are read from the source. Everything else — a Commons
- * description, a Finna summary — is small enough to be worth holding, and is
- * shown from what was stored.
+ * An item with no copy held here is read from the source. Which it is depends on
+ * the project's setting at import time, so this follows the item rather than
+ * assuming anything about where it came from.
  */
 const livePage = computed(() =>
-  props.item?.sourceType === 'wikipedia' && props.item.externalUrl && !props.item.mediaUrl
+  props.item && !props.item.hasSnapshot && !props.item.mediaUrl && props.item.externalUrl
     ? props.item.externalUrl
     : null,
 );

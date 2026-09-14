@@ -1,5 +1,5 @@
 import { db } from '../../db/connection.js';
-import type { Project } from '@wikitail/shared';
+import type { Project, SnapshotMode } from '@wikitail/shared';
 
 interface ProjectRow {
   id: number;
@@ -7,6 +7,7 @@ interface ProjectRow {
   title: string;
   description: string | null;
   main_article_id: number | null;
+  snapshot_mode: SnapshotMode;
   created_by: number;
   created_at: string;
 }
@@ -22,6 +23,7 @@ function toProject(row: ProjectRow): Project {
     title: row.title,
     description: row.description,
     mainArticleId: row.main_article_id,
+    snapshotMode: row.snapshot_mode,
     languages: (languagesStmt.all(row.id) as { language: string }[]).map((r) => r.language),
     createdBy: row.created_by,
     createdAt: row.created_at,
@@ -35,6 +37,7 @@ const insertStmt = db.prepare(
   'INSERT INTO projects (slug, title, description, created_by) VALUES (@slug, @title, @description, @createdBy)',
 );
 const setMainArticleStmt = db.prepare('UPDATE projects SET main_article_id = ? WHERE id = ?');
+const setSnapshotModeStmt = db.prepare('UPDATE projects SET snapshot_mode = ? WHERE id = ?');
 const deleteLanguagesStmt = db.prepare('DELETE FROM project_languages WHERE project_id = ?');
 const insertLanguageStmt = db.prepare(
   'INSERT INTO project_languages (project_id, language, position) VALUES (?, ?, ?)',
@@ -76,6 +79,11 @@ export const projectsRepository = {
 
   setMainArticle(id: number, articleId: number): Project {
     setMainArticleStmt.run(articleId, id);
+    return this.findById(id)!;
+  },
+
+  setSnapshotMode(id: number, mode: SnapshotMode): Project {
+    setSnapshotModeStmt.run(mode, id);
     return this.findById(id)!;
   },
 

@@ -36,6 +36,11 @@ See [`idea.md`](../idea.md) for the original concept.
   material gathered for an article is visible to all of them. It hangs off the *translation group*, so
   the language versions of an article share one library — which is what lets a tail entry resolve to
   the reader's language and a copied tail keep working.
+- **Hard copies or live links, per project.** Wikipedia permits framing, and renders its own article
+  far better than a sanitized copy can while always being current — so by default a project stores
+  only what is needed to link to an article, and readers get the live page in a dialog. A project that
+  wants an archive of what it cited can switch to hard copies, which also store the text and the
+  revision it was taken from. Media is copied either way: that is about not hotlinking, not archiving.
 - **Licensing**: every item stores licence, author and source so it can be credited the way Creative
   Commons asks (title, author, source, licence). Imported work keeps the licence and credit of its
   source — those are not ours to restate — while uploads carry a licence the uploader chooses,
@@ -128,6 +133,7 @@ storage do not change.
 users(id PK, email UNIQUE NOT NULL, display_name, role CHECK IN ('admin','author'), created_at)
 
 projects(id PK, slug UNIQUE, title, description, main_article_id NULL REFERENCES articles(id),
+         snapshot_mode CHECK IN ('hard_copy','live_link') DEFAULT 'live_link',
          created_by REFERENCES users(id), created_at)
 
 project_languages(project_id NOT NULL REFERENCES projects(id),
@@ -477,8 +483,9 @@ Finna notes:
   at `thumb.wikimedia.org`, so such an article is not fully offline-independent.
 - **No Tailwind.** The plan called for it; the UI currently uses plain scoped CSS per component.
   Revisit when the mobile-first browse view (M3) makes a utility system worth its weight.
-- **Snapshot refresh is unbuilt by design.** `source_revision` and `external_url` are stored so
-  re-fetching is possible later; when and how to refresh is still open.
+- **Snapshot refresh is unbuilt by design**, and matters less now: projects on live links have
+  nothing to refresh. For hard copies, `source_revision` and `external_url` are stored so re-fetching
+  remains possible; when and how to refresh is still open.
 - **Only implemented editor tabs are rendered.** Commons/Finna/Local appear as their adapters land,
   rather than sitting disabled.
 

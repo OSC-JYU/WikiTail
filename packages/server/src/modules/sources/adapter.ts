@@ -11,7 +11,11 @@ export interface SourceAdapter {
     query: string,
     opts?: { limit?: number; language?: string },
   ): Promise<SourceSearchResult[]>;
-  importItem(externalId: string): Promise<SourceSnapshot>;
+  /**
+   * `includeBody: false` asks for metadata only — the project keeps links rather
+   * than copies, so fetching a whole article would be wasted work.
+   */
+  importItem(externalId: string, opts?: { includeBody?: boolean }): Promise<SourceSnapshot>;
   /**
    * Language versions of the same thing, without fetching its content — used to
    * fill in siblings for an item already in the library. Sources with no notion

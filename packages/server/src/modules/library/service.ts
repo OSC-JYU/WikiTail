@@ -5,6 +5,7 @@ import type {
   LibraryItem,
   LibraryItemSummary,
   SourceSearchResult,
+  SnapshotMode,
   SourceSnapshot,
   SourceType,
   User,
@@ -69,6 +70,8 @@ export async function importToLibrary(
 ): Promise<ImportResult> {
   const group = groupFor(articleId);
   const adapter = getAdapter(sourceType);
+  // Whether this project keeps its own copy of an article or only links to it.
+  const importOpts = { includeBody: snapshotModeFor(articleId) === 'hard_copy' };
   const existing = libraryRepository.findByExternalId(group, sourceType, externalId);
 
   // Re-importing does not re-fetch content, but sibling languages are still
@@ -79,7 +82,7 @@ export async function importToLibrary(
   if (existing) {
     item = existing;
   } else {
-    const snapshot = await adapter.importItem(externalId);
+    const snapshot = await adapter.importItem(externalId, importOpts);
     item = persist(actor, group, snapshot);
     siblingIds = snapshot.siblings ?? {};
   }
@@ -106,7 +109,7 @@ export async function importToLibrary(
       continue;
     }
     try {
-      siblings.push(persist(actor, group, await adapter.importItem(siblingId)));
+      siblings.push(persist(actor, group, await adapter.importItem(siblingId, importOpts)));
     } catch (err) {
       // A concept with no page in that language, or a wiki hiccup, must not fail
       // the import the author actually asked for.
@@ -244,6 +247,12 @@ function persist(actor: User, group: number, snapshot: SourceSnapshot): LibraryI
     attributionText: snapshot.attributionText ?? null,
     importedBy: actor.id,
   });
+}
+
+function snapshotModeFor(articleId: number): SnapshotMode {
+  const article = articlesRepository.findById(articleId);
+  const project = article ? projectsRepository.findById(article.projectId) : undefined;
+  return project?.snapshotMode ?? 'live_link';
 }
 
 /** The project's languages, minus the one just imported. */

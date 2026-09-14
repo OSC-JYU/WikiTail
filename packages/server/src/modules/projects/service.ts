@@ -1,5 +1,5 @@
 import Boom from '@hapi/boom';
-import type { Project, User } from '@wikitail/shared';
+import type { Project, SnapshotMode, User } from '@wikitail/shared';
 import { config } from '../../config.js';
 import { forbidden, notFound } from '../../lib/errors.js';
 import { slugify } from '../../lib/slug.js';
@@ -61,6 +61,18 @@ function normalizeLanguages(languages: string[]): string[] {
     throw Boom.badRequest('A project needs at least one language');
   }
   return [...new Set(normalized)];
+}
+
+/**
+ * Hard copies keep an archive of what was cited; live links keep only enough to
+ * point at it. Changing the setting affects future imports — existing copies are
+ * left alone, since deleting an archive should be a deliberate act.
+ */
+export function setSnapshotMode(actor: User, slug: string, mode: SnapshotMode): Project {
+  if (actor.role !== 'admin') {
+    forbidden('Only admins can change how a project stores imports');
+  }
+  return projectsRepository.setSnapshotMode(getProjectBySlug(slug).id, mode);
 }
 
 export function assertLanguageAllowed(project: Project, language: string): void {

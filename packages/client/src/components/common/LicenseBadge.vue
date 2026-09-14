@@ -16,7 +16,7 @@ const props = defineProps<{
     | 'attributionText'
     | 'externalUrl'
     | 'sourceRevision'
-    | 'sourceType'
+    | 'hasSnapshot'
   >;
 }>();
 
@@ -27,11 +27,11 @@ const props = defineProps<{
 const hasStructuredCredit = () => Boolean(props.item.author);
 
 /**
- * The revision describes a stored copy. Wikipedia is now read live, so quoting
- * one next to the current article would say something untrue about what is on
+ * A revision describes the copy held here. Where the article is read live there
+ * is no such copy, so printing one would say something untrue about what is on
  * the screen.
  */
-const showsRevision = () => Boolean(props.item.sourceRevision) && props.item.sourceType !== 'wikipedia';
+const showsRevision = () => Boolean(props.item.sourceRevision && props.item.hasSnapshot);
 </script>
 
 <template>

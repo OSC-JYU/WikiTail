@@ -12,6 +12,7 @@ interface LibraryItemRow {
   language: string | null;
   concept_id: string | null;
   title: string;
+  has_snapshot: number;
   description: string | null;
   author: string | null;
   local_file_id: number | null;
@@ -32,7 +33,8 @@ interface FullLibraryItemRow extends LibraryItemRow {
 
 const SUMMARY_COLUMNS = `
   library_items.id, translation_group_id, source_type, external_id, external_url, source_revision, language,
-  concept_id, library_items.title, library_items.description AS description,
+  concept_id, library_items.title, (snapshot_html IS NOT NULL) AS has_snapshot,
+  library_items.description AS description,
   library_items.author AS author, local_file_id, local_files.disk_path AS disk_path,
   local_files.kind AS media_kind, license_name, license_url, attribution_text, imported_at,
   imported_by, library_items.created_at AS created_at
@@ -51,6 +53,7 @@ function toSummary(row: LibraryItemRow): LibraryItemSummary {
     language: row.language,
     conceptId: row.concept_id,
     title: row.title,
+    hasSnapshot: Boolean(row.has_snapshot),
     description: row.description,
     author: row.author,
     localFileId: row.local_file_id,

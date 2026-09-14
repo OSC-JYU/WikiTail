@@ -8,6 +8,12 @@ export interface User {
   createdAt: string;
 }
 
+/**
+ * Whether imported articles are copied here or only linked to. Media is always
+ * copied either way — that is about not hotlinking, not about archiving text.
+ */
+export type SnapshotMode = 'hard_copy' | 'live_link';
+
 export interface Project {
   id: number;
   slug: string;
@@ -16,6 +22,7 @@ export interface Project {
   mainArticleId: number | null;
   /** Declared content languages, ordered; the first is the project's primary. */
   languages: string[];
+  snapshotMode: SnapshotMode;
   createdBy: number;
   createdAt: string;
 }
@@ -69,6 +76,8 @@ export interface LibraryItem {
   /** Ties language versions of one topic together, e.g. "wikidata:Q185187". */
   conceptId: string | null;
   title: string;
+  /** True when a copy of the body is held here, rather than only a link to it. */
+  hasSnapshot: boolean;
   /** The author's own caption for this item, shown wherever it appears. */
   description: string | null;
   /** Who made the work, for citation — "Wikipedia contributors", a photographer's name. */

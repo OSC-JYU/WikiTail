@@ -108,13 +108,20 @@ export async function fetchConcept(title: string, language: string): Promise<Wik
   };
 }
 
+/**
+ * MediaWiki titles travel with underscores, not spaces. A percent-encoded space
+ * does not 404 — the endpoint answers 200 with a page of MediaWiki site chrome,
+ * so getting this wrong silently stores the wrong content.
+ */
+export function toPathTitle(title: string): string {
+  return encodeURIComponent(title.replace(/ /g, '_'));
+}
+
 export async function fetchArticleHtml(
   title: string,
   language: string,
-): Promise<{ html: string; revision: string | undefined }> {
-  const res = await fetch(`${restApi(language)}/page/${encodeURIComponent(title)}/html`, {
-    headers,
-  });
+): Promise<{ html: string; revision: string }> {
+  const res = await fetch(`${restApi(language)}/page/${toPathTitle(title)}/html`, { headers });
   if (res.status === 404) {
     throw Boom.notFound(`Wikipedia article not found: ${language}:${title}`);
   }
@@ -123,11 +130,19 @@ export async function fetchArticleHtml(
   }
 
   // ETag looks like: W/"1361616616/493d6ed3-.../view/html" — the leading number
-  // is the revision this snapshot was taken from.
+  // is the revision this snapshot was taken from. Every real article response
+  // carries one, so its absence means this is not an article: treat it as a
+  // failure rather than storing whatever came back.
   const revision = res.headers.get('etag')?.match(/"(\d+)\//)?.[1];
+  if (!revision) {
+    throw Boom.badGateway(
+      `Wikipedia REST API returned no revision for ${language}:${title} — refusing to store unverified content`,
+    );
+  }
+
   return { html: await res.text(), revision };
 }
 
 export function articleUrl(title: string, language: string): string {
-  return `https://${language}.wikipedia.org/wiki/${encodeURIComponent(title.replace(/ /g, '_'))}`;
+  return `https://${language}.wikipedia.org/wiki/${toPathTitle(title)}`;
 }

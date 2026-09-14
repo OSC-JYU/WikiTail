@@ -11,7 +11,7 @@ defineProps<{ item: Pick<LibraryItemSummary, 'licenseName' | 'licenseUrl' | 'att
       {{ item.licenseName ?? 'License' }}
     </a>
     <a v-if="item.externalUrl" :href="item.externalUrl" target="_blank" rel="noopener noreferrer">
-      View source
+      {{ $t('browse.viewSource') }}
     </a>
     <span v-if="item.sourceRevision" class="revision">rev {{ item.sourceRevision }}</span>
   </p>

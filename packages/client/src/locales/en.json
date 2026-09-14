@@ -1,0 +1,34 @@
+{
+  "nav": {
+    "browse": "Browse",
+    "edit": "Edit",
+    "backToProject": "Back to project",
+    "backToProjects": "All projects"
+  },
+  "projects": {
+    "title": "Projects",
+    "empty": "No projects yet.",
+    "languages": "Languages"
+  },
+  "browse": {
+    "readArticle": "Read",
+    "noPublished": "Nothing published here yet.",
+    "tailHeading": "More on this",
+    "showSnapshot": "Show saved copy",
+    "hideSnapshot": "Hide saved copy",
+    "viewSource": "View source",
+    "savedCopy": "Saved copy from {date}",
+    "onlyIn": "Only in {languages}",
+    "shownIn": "Shown in {language}"
+  },
+  "translation": {
+    "missingTitle": "Translation missing",
+    "missingBody": "This article has not been written in {language} yet. Maybe you could help?",
+    "missingAvailable": "It is available in: {languages}",
+    "startTranslation": "Write the {language} version",
+    "substituteNotice": "No {requested} version yet — showing the {shown} one."
+  },
+  "language": {
+    "label": "Language"
+  }
+}

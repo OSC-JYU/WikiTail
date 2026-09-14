@@ -1,6 +1,6 @@
 # Wikitail — Implementation Plan
 
-Status: **M0-M3 complete.** M4 (public browse view and UI translation) is next.
+Status: **M0-M4 complete.** M5 (Commons adapter and polish) is next.
 
 Wikitail is a self-hosted, multi-user app for writing local articles (markdown) enriched with
 content imported from external "wiki world" sources — Wikipedia first, then Wikimedia Commons,
@@ -361,7 +361,7 @@ Implementation notes:
   commentary come across, and because items resolve at read time, they follow the new language
   automatically. Only the notes need translating.
 
-### M4 — Public browse view (mobile-first) + UI translation ⬅ next
+### M4 — Public browse view (mobile-first) + UI translation ✅ done
 
 `public` routes (`auth: false`, published only); `BrowseArticleView` + `ArticleFeed`/`TailItemCard`;
 mobile-first layout. `vue-i18n` with locale files and a language switcher, with the chosen locale
@@ -369,7 +369,20 @@ selecting content language and falling back to the project default. **Deliverabl
 visitor browses home → project → article + Tail on a phone viewport in either language, with external
 links opening in a new tab.
 
-### M5 — Polish and second adapter
+Implementation notes:
+
+- Public browsing lives at the root (`/`, `/p/:project`, `/p/:project/:language/:article`); authoring
+  moved under `/admin`. The site a visitor lands on is the public one.
+- **Public article URLs carry the language**, because slugs are unique per
+  `(project, language)` — the Finnish and English "Ilokivi" share the slug `ilokivi`, so a slug alone
+  cannot identify a version. This also makes a shared link keep its language.
+- A library item is public only while some *published* article shows it, in its tail or embedded in
+  its body; the library itself stays private. Verified: an item that appears only in drafts 404s.
+- Body embeds resolve to the article's language the same way tail items do.
+- Language codes are shown through `Intl.DisplayNames`, so a Finnish reader sees "englanti" rather
+  than "en".
+
+### M5 — Polish and second adapter ⬅ next
 
 Commons adapter (chosen over Wikidata as the second *content* source — it exercises the binary media
 path via `local_files`, validating the interface for media and not just text) + `CommonsTab.vue`;
@@ -403,8 +416,6 @@ admin role management; upload size limits; loading/error states.
 
 ## Known gaps
 
-- **UI chrome is not translated yet.** M2 made content language-aware, but the interface itself is
-  still English-only; `vue-i18n` and the switcher land in M4.
 - **No test suite yet.** `vitest` is planned but not installed; verification so far has been manual
   plus scripted browser runs. Worth addressing before the codebase grows much further — the language
   work in M2 adds fallback and resolution logic that is exactly the kind of thing tests should pin
@@ -426,11 +437,6 @@ admin role management; upload size limits; loading/error states.
 - **Translating an existing article**: the tail can now be copied (see below), but the *body* still
   starts blank. Pre-fill it with the source language's markdown as a starting point for the
   translator, or keep translators writing from scratch?
-- **Project index with missing translations.** An article page has a clear rule now (placeholder or
-  substitute), but a *list* does not. Showing "translation missing" rows in a project index makes gaps
-  visible and invites help; it also adds noise for visitors who cannot act on it. Likely answer: list
-  the substitute where set, and otherwise show the entry marked "only in English" so the content stays
-  discoverable — but worth deciding with a real project in front of us.
 - **Backfill when a language is added to a project.** Adding a language should offer to fetch sibling
   snapshots for already-imported library items. Automatic, or an explicit admin action with a progress
   report? Automatic risks a long blocking request on a large library.

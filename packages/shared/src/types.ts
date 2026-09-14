@@ -109,6 +109,26 @@ export interface TailEntry {
   createdAt: string;
 }
 
+/** One translation group as a public reader in a given language sees it in a listing. */
+export interface BrowseListing {
+  translationGroupId: number;
+  /** null when nothing is shown in this language and no substitute was set. */
+  article: Article | null;
+  /** Set when the shown article is not in the requested language. */
+  shownLanguage: string | null;
+  availableLanguages: string[];
+}
+
+export interface BrowseArticle {
+  project: Project;
+  article: Article;
+  tail: TailEntryView[];
+  /** Library items the body embeds via [[library:N]], resolved to the article's language. */
+  embeds: LibraryItemSummary[];
+  versions: ArticleVersion[];
+  requestedLanguage: string | null;
+}
+
 /** A tail entry with its library item already resolved to the article's language. */
 export interface TailEntryView extends TailEntry {
   item: LibraryItemSummary;

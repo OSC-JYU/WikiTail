@@ -1,0 +1,34 @@
+{
+  "nav": {
+    "browse": "Selaa",
+    "edit": "Muokkaa",
+    "backToProject": "Takaisin projektiin",
+    "backToProjects": "Kaikki projektit"
+  },
+  "projects": {
+    "title": "Projektit",
+    "empty": "Ei vielä projekteja.",
+    "languages": "Kielet"
+  },
+  "browse": {
+    "readArticle": "Lue",
+    "noPublished": "Täällä ei ole vielä julkaistua sisältöä.",
+    "tailHeading": "Lisää aiheesta",
+    "showSnapshot": "Näytä tallennettu kopio",
+    "hideSnapshot": "Piilota tallennettu kopio",
+    "viewSource": "Näytä lähde",
+    "savedCopy": "Tallennettu kopio {date}",
+    "onlyIn": "Vain kielellä {languages}",
+    "shownIn": "Näytetään kielellä {language}"
+  },
+  "translation": {
+    "missingTitle": "Käännös puuttuu",
+    "missingBody": "Tätä artikkelia ei ole vielä kirjoitettu kielellä {language}. Ehkä sinä voisit auttaa?",
+    "missingAvailable": "Saatavilla kielillä: {languages}",
+    "startTranslation": "Kirjoita {language}-versio",
+    "substituteNotice": "Ei vielä {requested}-versiota — näytetään {shown}-versio."
+  },
+  "language": {
+    "label": "Kieli"
+  }
+}

@@ -75,7 +75,7 @@ describe('curating a tail', () => {
     addToTail(actor, article.id, { libraryItemId: a.id, commentary: 'Vanha keksintö' });
     addToTail(actor, article.id, { libraryItemId: b.id, commentary: null });
 
-    const tail = listTail(article.id, actor.id);
+    const tail = listTail(article.id);
     expect(tail.map((e) => e.position)).toEqual([0, 1]);
     expect(tail[0].commentary).toBe('Vanha keksintö');
     expect(tail[0].item.title).toBe('Vesimylly');
@@ -89,7 +89,7 @@ describe('curating a tail', () => {
     addToTail(actor, article.id, { libraryItemId: item.id, commentary: 'First point' });
     addToTail(actor, article.id, { libraryItemId: item.id, commentary: 'Second point' });
 
-    expect(listTail(article.id, actor.id).map((e) => e.commentary)).toEqual([
+    expect(listTail(article.id).map((e) => e.commentary)).toEqual([
       'First point',
       'Second point',
     ]);
@@ -105,15 +105,15 @@ describe('curating a tail', () => {
     const second = addToTail(actor, article.id, { libraryItemId: b.id, commentary: null });
 
     reorderTail(actor, article.id, [second.id, first.id]);
-    expect(listTail(article.id, actor.id).map((e) => e.item.title)).toEqual(['B', 'A']);
+    expect(listTail(article.id).map((e) => e.item.title)).toEqual(['B', 'A']);
 
     updateTailEntry(actor, first.id, 'now with a note');
-    expect(listTail(article.id, actor.id).find((e) => e.id === first.id)?.commentary).toBe(
+    expect(listTail(article.id).find((e) => e.id === first.id)?.commentary).toBe(
       'now with a note',
     );
 
     removeTailEntry(actor, second.id);
-    expect(listTail(article.id, actor.id).map((e) => e.item.title)).toEqual(['A']);
+    expect(listTail(article.id).map((e) => e.item.title)).toEqual(['A']);
   });
 
   it('rejects a reorder that does not list exactly this tail', () => {
@@ -149,7 +149,7 @@ describe('copying a tail onto a translation', () => {
     addToTail(actor, fi.id, { libraryItemId: item.id, commentary: 'note' });
 
     const en = createTranslation(actor, fi.id, { language: 'en', title: 'Mill', bodyMarkdown: '' });
-    expect(listTail(en.id, actor.id)).toHaveLength(0);
+    expect(listTail(en.id)).toHaveLength(0);
   });
 
   it('carries entries, commentary and order across as a draft', () => {
@@ -167,7 +167,7 @@ describe('copying a tail onto a translation', () => {
       copyTail: true,
     });
 
-    const copied = listTail(en.id, actor.id);
+    const copied = listTail(en.id);
     expect(copied.map((e) => e.item.title)).toEqual(['A', 'B']);
     expect(copied.map((e) => e.commentary)).toEqual(['eka', 'toka']);
   });
@@ -184,9 +184,9 @@ describe('copying a tail onto a translation', () => {
       bodyMarkdown: '',
       copyTail: true,
     });
-    removeTailEntry(actor, listTail(en.id, actor.id)[0].id);
+    removeTailEntry(actor, listTail(en.id)[0].id);
 
-    expect(listTail(fi.id, actor.id)).toHaveLength(1);
+    expect(listTail(fi.id)).toHaveLength(1);
   });
 
   it('shows copied entries in the translation language where a version exists', () => {
@@ -204,7 +204,7 @@ describe('copying a tail onto a translation', () => {
       copyTail: true,
     });
 
-    const [entry] = listTail(en.id, actor.id);
+    const [entry] = listTail(en.id);
     // The item follows the article's language; only the note still needs translating.
     expect(entry.item.title).toBe('Watermill');
     expect(entry.shownInOtherLanguage).toBe(false);
@@ -227,11 +227,11 @@ describe('resolving tail items to the article language', () => {
     db.prepare('INSERT INTO tail_entries (article_id, library_item_id, commentary, position) VALUES (?,?,?,0)')
       .run(en.id, fiItem.id, 'note');
 
-    const [onFinnish] = listTail(fi.id, actor.id);
+    const [onFinnish] = listTail(fi.id);
     expect(onFinnish.item.title).toBe('Vesimylly');
     expect(onFinnish.shownInOtherLanguage).toBe(false);
 
-    const [onEnglish] = listTail(en.id, actor.id);
+    const [onEnglish] = listTail(en.id);
     expect(onEnglish.item.title).toBe('Watermill');
     expect(onEnglish.shownInOtherLanguage).toBe(false);
   });
@@ -245,7 +245,7 @@ describe('resolving tail items to the article language', () => {
     db.prepare('INSERT INTO tail_entries (article_id, library_item_id, commentary, position) VALUES (?,?,?,0)')
       .run(en.id, fiOnly.id, null);
 
-    const [entry] = listTail(en.id, actor.id);
+    const [entry] = listTail(en.id);
     expect(entry.item.title).toBe('Paikallinen');
     expect(entry.shownInOtherLanguage).toBe(true);
   });
@@ -256,6 +256,6 @@ describe('resolving tail items to the article language', () => {
     const item = makeItem({ language: 'fi', conceptId: null, title: 'Kuva' });
     addToTail(actor, fi.id, { libraryItemId: item.id, commentary: null });
 
-    expect(listTail(fi.id, actor.id)[0].item.title).toBe('Kuva');
+    expect(listTail(fi.id)[0].item.title).toBe('Kuva');
   });
 });

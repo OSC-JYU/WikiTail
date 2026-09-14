@@ -15,10 +15,7 @@ export const tailRoutesPlugin: Plugin<undefined> = {
     server.route({
       method: 'GET',
       path: '/api/articles/{id}/tail',
-      handler: (request) => {
-        const actor = request.auth.credentials as unknown as User;
-        return listTail(Number(request.params.id), actor.id);
-      },
+      handler: (request) => listTail(Number(request.params.id)),
     });
 
     server.route({

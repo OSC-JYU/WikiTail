@@ -24,16 +24,19 @@ function requireOwnership(actor: User, articleId: number) {
  * entry added while writing in English shows the Finnish snapshot of the same
  * concept when read on the Finnish version.
  */
-export function listTail(articleId: number, ownerId: number): TailEntryView[] {
+export function listTail(articleId: number): TailEntryView[] {
   const article = requireArticle(articleId);
 
   return tailRepository.listByArticle(articleId).flatMap((entry) => {
     const stored = libraryRepository.findSummaryById(entry.libraryItemId);
     if (!stored) return [];
 
+    // Siblings are looked up in the author's library, not the viewer's — the tail
+    // is the author's curation, and public readers have no library at all.
     const resolved =
       stored.conceptId && stored.language !== article.language
-        ? (libraryRepository.findByConcept(ownerId, stored.conceptId, article.language) ?? stored)
+        ? (libraryRepository.findByConcept(stored.ownerId, stored.conceptId, article.language) ??
+          stored)
         : stored;
 
     return [

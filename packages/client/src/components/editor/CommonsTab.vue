@@ -8,6 +8,7 @@ import { useLibraryStore } from '../../stores/library';
  * Commons media is language-neutral, so unlike the Wiki world tab there is no
  * language to search in and no sibling versions to pull alongside.
  */
+const props = defineProps<{ articleId: number }>();
 const library = useLibraryStore();
 
 const query = ref('');
@@ -35,7 +36,7 @@ async function importResult(result: SourceSearchResult) {
   importingId.value = result.externalId;
   error.value = null;
   try {
-    await library.importItem('commons', result.externalId);
+    await library.importItem('commons', result.externalId, props.articleId);
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Import failed';
   } finally {
@@ -50,7 +51,10 @@ async function importResult(result: SourceSearchResult) {
     <button type="submit" :disabled="searching">{{ searching ? 'Searching…' : 'Search' }}</button>
   </form>
 
-  <p class="hint">Importing downloads the file, so it is served from here rather than hotlinked.</p>
+  <p class="hint">
+    Importing downloads the file into this article's library, so it is served from here rather than
+    hotlinked.
+  </p>
 
   <p v-if="error" class="error">{{ error }}</p>
 

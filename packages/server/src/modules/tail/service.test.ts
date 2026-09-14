@@ -16,7 +16,6 @@ const { addToTail, listTail, removeTailEntry, reorderTail, updateTailEntry } = a
 );
 
 const actor = usersRepository.upsertByEmail('tester@wikitail.local', 'admin');
-const other = usersRepository.upsertByEmail('other@wikitail.local', 'author');
 
 function makeProject() {
   return projectsRepository.create({
@@ -32,10 +31,10 @@ function makeItem(opts: {
   language: string;
   conceptId: string | null;
   title: string;
-  ownerId?: number;
+  translationGroupId: number;
 }) {
   return libraryRepository.create({
-    ownerId: opts.ownerId ?? actor.id,
+    translationGroupId: opts.translationGroupId,
     sourceType: 'wikipedia',
     externalId: `${opts.language}:${opts.title}`,
     externalUrl: `https://${opts.language}.wikipedia.org/wiki/${opts.title}`,
@@ -51,15 +50,16 @@ function makeItem(opts: {
     licenseName: 'CC BY-SA 4.0',
     licenseUrl: 'https://example.test/licence',
     attributionText: 'Wikipedia contributors',
-    importedBy: opts.ownerId ?? actor.id,
+    importedBy: actor.id,
   });
 }
 
 beforeEach(() => {
+  // Library items now reference the group, so they go before it.
   db.prepare('DELETE FROM tail_entries').run();
+  db.prepare('DELETE FROM library_items').run();
   db.prepare('DELETE FROM articles').run();
   db.prepare('DELETE FROM translation_groups').run();
-  db.prepare('DELETE FROM library_items').run();
 });
 
 afterAll(() => {
@@ -71,8 +71,8 @@ describe('curating a tail', () => {
   it('appends entries in order and keeps the author commentary', () => {
     const project = makeProject();
     const article = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    const a = makeItem({ language: 'fi', conceptId: null, title: 'Vesimylly' });
-    const b = makeItem({ language: 'fi', conceptId: null, title: 'Myllykivi' });
+    const a = makeItem({ translationGroupId: article.translationGroupId, language: 'fi', conceptId: null, title: 'Vesimylly' });
+    const b = makeItem({ translationGroupId: article.translationGroupId, language: 'fi', conceptId: null, title: 'Myllykivi' });
 
     addToTail(actor, article.id, { libraryItemId: a.id, commentary: 'Vanha keksintö' });
     addToTail(actor, article.id, { libraryItemId: b.id, commentary: null });
@@ -86,7 +86,7 @@ describe('curating a tail', () => {
   it('allows the same item more than once, each with its own commentary', () => {
     const project = makeProject();
     const article = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    const item = makeItem({ language: 'fi', conceptId: null, title: 'Vesimylly' });
+    const item = makeItem({ translationGroupId: article.translationGroupId, language: 'fi', conceptId: null, title: 'Vesimylly' });
 
     addToTail(actor, article.id, { libraryItemId: item.id, commentary: 'First point' });
     addToTail(actor, article.id, { libraryItemId: item.id, commentary: 'Second point' });
@@ -100,8 +100,8 @@ describe('curating a tail', () => {
   it('reorders, edits and removes entries', () => {
     const project = makeProject();
     const article = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    const a = makeItem({ language: 'fi', conceptId: null, title: 'A' });
-    const b = makeItem({ language: 'fi', conceptId: null, title: 'B' });
+    const a = makeItem({ translationGroupId: article.translationGroupId, language: 'fi', conceptId: null, title: 'A' });
+    const b = makeItem({ translationGroupId: article.translationGroupId, language: 'fi', conceptId: null, title: 'B' });
 
     const first = addToTail(actor, article.id, { libraryItemId: a.id, commentary: null });
     const second = addToTail(actor, article.id, { libraryItemId: b.id, commentary: null });
@@ -121,25 +121,28 @@ describe('curating a tail', () => {
   it('rejects a reorder that does not list exactly this tail', () => {
     const project = makeProject();
     const article = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    const item = makeItem({ language: 'fi', conceptId: null, title: 'A' });
+    const item = makeItem({ translationGroupId: article.translationGroupId, language: 'fi', conceptId: null, title: 'A' });
     const entry = addToTail(actor, article.id, { libraryItemId: item.id, commentary: null });
 
     expect(() => reorderTail(actor, article.id, [entry.id, 9999])).toThrow(/exactly the entries/);
   });
 
-  it('refuses to attach another user library item', () => {
+  // Items belong to an article library, so one article cannot quietly pull in
+  // material gathered for a different one.
+  it('refuses an item from a different article library', () => {
     const project = makeProject();
     const article = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
+    const elsewhere = createArticle(actor, project.id, { title: 'Sauna', bodyMarkdown: '' });
     const theirs = makeItem({
+      translationGroupId: elsewhere.translationGroupId,
       language: 'fi',
       conceptId: null,
       title: 'Theirs',
-      ownerId: other.id,
     });
 
     expect(() =>
       addToTail(actor, article.id, { libraryItemId: theirs.id, commentary: null }),
-    ).toThrow(/another user/);
+    ).toThrow(/different article library/);
   });
 });
 
@@ -147,7 +150,7 @@ describe('copying a tail onto a translation', () => {
   it('starts empty unless the author asks for a copy', () => {
     const project = makeProject();
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    const item = makeItem({ language: 'fi', conceptId: null, title: 'Vesimylly' });
+    const item = makeItem({ translationGroupId: fi.translationGroupId, language: 'fi', conceptId: null, title: 'Vesimylly' });
     addToTail(actor, fi.id, { libraryItemId: item.id, commentary: 'note' });
 
     const en = createTranslation(actor, fi.id, { language: 'en', title: 'Mill', bodyMarkdown: '' });
@@ -157,8 +160,8 @@ describe('copying a tail onto a translation', () => {
   it('carries entries, commentary and order across as a draft', () => {
     const project = makeProject();
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    const a = makeItem({ language: 'fi', conceptId: null, title: 'A' });
-    const b = makeItem({ language: 'fi', conceptId: null, title: 'B' });
+    const a = makeItem({ translationGroupId: fi.translationGroupId, language: 'fi', conceptId: null, title: 'A' });
+    const b = makeItem({ translationGroupId: fi.translationGroupId, language: 'fi', conceptId: null, title: 'B' });
     addToTail(actor, fi.id, { libraryItemId: a.id, commentary: 'eka' });
     addToTail(actor, fi.id, { libraryItemId: b.id, commentary: 'toka' });
 
@@ -177,7 +180,7 @@ describe('copying a tail onto a translation', () => {
   it('leaves the source tail untouched', () => {
     const project = makeProject();
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    const item = makeItem({ language: 'fi', conceptId: null, title: 'A' });
+    const item = makeItem({ translationGroupId: fi.translationGroupId, language: 'fi', conceptId: null, title: 'A' });
     addToTail(actor, fi.id, { libraryItemId: item.id, commentary: 'note' });
 
     const en = createTranslation(actor, fi.id, {
@@ -195,8 +198,8 @@ describe('copying a tail onto a translation', () => {
     const project = makeProject();
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
     const concept = 'wikidata:Q185187';
-    const fiItem = makeItem({ language: 'fi', conceptId: concept, title: 'Vesimylly' });
-    makeItem({ language: 'en', conceptId: concept, title: 'Watermill' });
+    const fiItem = makeItem({ translationGroupId: fi.translationGroupId, language: 'fi', conceptId: concept, title: 'Vesimylly' });
+    makeItem({ translationGroupId: fi.translationGroupId, language: 'en', conceptId: concept, title: 'Watermill' });
     addToTail(actor, fi.id, { libraryItemId: fiItem.id, commentary: 'vanha keksintö' });
 
     const en = createTranslation(actor, fi.id, {
@@ -221,8 +224,8 @@ describe('resolving tail items to the article language', () => {
     const en = createTranslation(actor, fi.id, { language: 'en', title: 'Mill', bodyMarkdown: '' });
 
     const concept = 'wikidata:Q185187';
-    const fiItem = makeItem({ language: 'fi', conceptId: concept, title: 'Vesimylly' });
-    makeItem({ language: 'en', conceptId: concept, title: 'Watermill' });
+    const fiItem = makeItem({ translationGroupId: en.translationGroupId, language: 'fi', conceptId: concept, title: 'Vesimylly' });
+    makeItem({ translationGroupId: en.translationGroupId, language: 'en', conceptId: concept, title: 'Watermill' });
 
     // Added while writing Finnish, but the English article should show English.
     addToTail(actor, fi.id, { libraryItemId: fiItem.id, commentary: 'note' });
@@ -243,7 +246,7 @@ describe('resolving tail items to the article language', () => {
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
     const en = createTranslation(actor, fi.id, { language: 'en', title: 'Mill', bodyMarkdown: '' });
 
-    const fiOnly = makeItem({ language: 'fi', conceptId: 'wikidata:Q999', title: 'Paikallinen' });
+    const fiOnly = makeItem({ translationGroupId: en.translationGroupId, language: 'fi', conceptId: 'wikidata:Q999', title: 'Paikallinen' });
     db.prepare('INSERT INTO tail_entries (article_id, library_item_id, commentary, position) VALUES (?,?,?,0)')
       .run(en.id, fiOnly.id, null);
 
@@ -255,7 +258,7 @@ describe('resolving tail items to the article language', () => {
   it('leaves items with no concept alone', () => {
     const project = makeProject();
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    const item = makeItem({ language: 'fi', conceptId: null, title: 'Kuva' });
+    const item = makeItem({ translationGroupId: fi.translationGroupId, language: 'fi', conceptId: null, title: 'Kuva' });
     addToTail(actor, fi.id, { libraryItemId: item.id, commentary: null });
 
     expect(listTail(fi.id)[0].item.title).toBe('Kuva');

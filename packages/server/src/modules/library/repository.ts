@@ -4,7 +4,7 @@ import { mediaUrl } from '../files/storage.js';
 
 interface LibraryItemRow {
   id: number;
-  owner_id: number;
+  translation_group_id: number;
   source_type: SourceType;
   external_id: string | null;
   external_url: string | null;
@@ -31,7 +31,7 @@ interface FullLibraryItemRow extends LibraryItemRow {
 }
 
 const SUMMARY_COLUMNS = `
-  library_items.id, library_items.owner_id AS owner_id, source_type, external_id, external_url, source_revision, language,
+  library_items.id, translation_group_id, source_type, external_id, external_url, source_revision, language,
   concept_id, library_items.title, library_items.description AS description,
   library_items.author AS author, local_file_id, local_files.disk_path AS disk_path,
   local_files.kind AS media_kind, license_name, license_url, attribution_text, imported_at,
@@ -43,7 +43,7 @@ const FROM_WITH_FILE = 'FROM library_items LEFT JOIN local_files ON local_files.
 function toSummary(row: LibraryItemRow): LibraryItemSummary {
   return {
     id: row.id,
-    ownerId: row.owner_id,
+    translationGroupId: row.translation_group_id,
     sourceType: row.source_type,
     externalId: row.external_id,
     externalUrl: row.external_url,
@@ -74,7 +74,8 @@ function toFull(row: FullLibraryItemRow): LibraryItem {
 }
 
 const listStmt = db.prepare(
-  `SELECT ${SUMMARY_COLUMNS} ${FROM_WITH_FILE} WHERE library_items.owner_id = ? ORDER BY imported_at DESC`,
+  `SELECT ${SUMMARY_COLUMNS} ${FROM_WITH_FILE}
+   WHERE translation_group_id = ? ORDER BY imported_at DESC`,
 );
 const findByIdStmt = db.prepare(
   `SELECT ${SUMMARY_COLUMNS}, snapshot_html, snapshot_json ${FROM_WITH_FILE}
@@ -85,15 +86,15 @@ const findSummaryByIdStmt = db.prepare(
 );
 const findByExternalStmt = db.prepare(
   `SELECT ${SUMMARY_COLUMNS} ${FROM_WITH_FILE}
-   WHERE library_items.owner_id = ? AND source_type = ? AND external_id = ?`,
+   WHERE translation_group_id = ? AND source_type = ? AND external_id = ?`,
 );
 const insertStmt = db.prepare(`
   INSERT INTO library_items (
-    owner_id, source_type, external_id, external_url, source_revision, language, concept_id, title,
-    description, author, snapshot_html, snapshot_json, local_file_id, license_name, license_url,
-    attribution_text, imported_by
+    translation_group_id, source_type, external_id, external_url, source_revision, language,
+    concept_id, title, description, author, snapshot_html, snapshot_json, local_file_id,
+    license_name, license_url, attribution_text, imported_by
   ) VALUES (
-    @ownerId, @sourceType, @externalId, @externalUrl, @sourceRevision, @language, @conceptId, @title,
+    @translationGroupId, @sourceType, @externalId, @externalUrl, @sourceRevision, @language, @conceptId, @title,
     @description, @author, @snapshotHtml, @snapshotJson, @localFileId, @licenseName, @licenseUrl,
     @attributionText, @importedBy
   )
@@ -107,12 +108,12 @@ const updateDetailsStmt = db.prepare(`
 `);
 const findByConceptStmt = db.prepare(
   `SELECT ${SUMMARY_COLUMNS} ${FROM_WITH_FILE}
-   WHERE library_items.owner_id = ? AND concept_id = ? AND language = ?`,
+   WHERE translation_group_id = ? AND concept_id = ? AND language = ?`,
 );
 
 export const libraryRepository = {
-  listByOwner(ownerId: number): LibraryItemSummary[] {
-    return (listStmt.all(ownerId) as LibraryItemRow[]).map(toSummary);
+  listByGroup(translationGroupId: number): LibraryItemSummary[] {
+    return (listStmt.all(translationGroupId) as LibraryItemRow[]).map(toSummary);
   },
 
   findById(id: number): LibraryItem | undefined {
@@ -127,11 +128,11 @@ export const libraryRepository = {
   },
 
   findByExternalId(
-    ownerId: number,
+    translationGroupId: number,
     sourceType: SourceType,
     externalId: string,
   ): LibraryItemSummary | undefined {
-    const row = findByExternalStmt.get(ownerId, sourceType, externalId) as
+    const row = findByExternalStmt.get(translationGroupId, sourceType, externalId) as
       | LibraryItemRow
       | undefined;
     return row ? toSummary(row) : undefined;
@@ -159,16 +160,18 @@ export const libraryRepository = {
 
   /** The sibling of an imported item in another language, matched by concept. */
   findByConcept(
-    ownerId: number,
+    translationGroupId: number,
     conceptId: string,
     language: string,
   ): LibraryItemSummary | undefined {
-    const row = findByConceptStmt.get(ownerId, conceptId, language) as LibraryItemRow | undefined;
+    const row = findByConceptStmt.get(translationGroupId, conceptId, language) as
+      | LibraryItemRow
+      | undefined;
     return row ? toSummary(row) : undefined;
   },
 
   create(input: {
-    ownerId: number;
+    translationGroupId: number;
     sourceType: SourceType;
     externalId: string | null;
     externalUrl: string | null;

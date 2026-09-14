@@ -13,14 +13,14 @@ export const libraryApi = {
     if (opts.language) params.set('language', opts.language);
     return api.get<SourceSearchResult[]>(`/sources/${sourceType}/search?${params}`);
   },
-  list: () => api.get<LibraryItemSummary[]>('/library'),
+  list: (articleId: number) => api.get<LibraryItemSummary[]>(`/articles/${articleId}/library`),
   get: (id: number) => api.get<LibraryItem>(`/library/${id}`),
   update: (
     id: number,
     input: { description?: string | null; title?: string; author?: string; licenceId?: string },
   ) => api.patch<LibraryItemSummary>(`/library/${id}`, input),
 
-  import: (sourceType: SourceType, externalId: string, articleId?: number) =>
+  import: (sourceType: SourceType, externalId: string, articleId: number) =>
     api.post<ImportResult>('/library/import', { sourceType, externalId, articleId }),
 
   /**
@@ -28,6 +28,7 @@ export const libraryApi = {
    * has to set the multipart Content-Type itself so it can include the boundary.
    */
   async upload(
+    articleId: number,
     file: File,
     fields: { title?: string; description?: string; author?: string; licenceId?: string } = {},
   ) {
@@ -37,7 +38,10 @@ export const libraryApi = {
     }
     body.set('file', file);
 
-    const res = await fetch('/api/library/upload', { method: 'POST', body });
+    const res = await fetch(`/api/articles/${articleId}/library/upload`, {
+      method: 'POST',
+      body,
+    });
     if (!res.ok) {
       const problem = await res.json().catch(() => ({ message: res.statusText }));
       throw new Error(problem.message ?? res.statusText);

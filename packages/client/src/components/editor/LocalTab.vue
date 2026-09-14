@@ -6,6 +6,7 @@ import { useLibraryStore } from '../../stores/library';
 import MediaPreview from '../common/MediaPreview.vue';
 
 /** Your own photos, recordings and video, stored here rather than linked. */
+const props = defineProps<{ articleId: number }>();
 const library = useLibraryStore();
 
 const fileInput = ref<HTMLInputElement | null>(null);
@@ -32,7 +33,7 @@ async function upload() {
   uploading.value = true;
   error.value = null;
   try {
-    const item = await libraryApi.upload(file.value, {
+    const item = await libraryApi.upload(props.articleId, file.value, {
       title: title.value,
       description: description.value,
       author: author.value,

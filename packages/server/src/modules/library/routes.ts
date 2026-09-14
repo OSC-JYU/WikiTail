@@ -48,20 +48,19 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
 
     server.route({
       method: 'GET',
-      path: '/api/library',
-      handler: (request) => listLibrary(request.auth.credentials as unknown as User),
+      path: '/api/articles/{articleId}/library',
+      handler: (request) => listLibrary(Number(request.params.articleId)),
     });
 
     server.route({
       method: 'GET',
       path: '/api/library/{id}',
-      handler: (request) =>
-        getLibraryItem(request.auth.credentials as unknown as User, Number(request.params.id)),
+      handler: (request) => getLibraryItem(Number(request.params.id)),
     });
 
     server.route({
       method: 'POST',
-      path: '/api/library/upload',
+      path: '/api/articles/{articleId}/library/upload',
       options: {
         payload: {
           // Streamed rather than buffered: an upload can be a large video, and
@@ -86,15 +85,19 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
           throw Boom.badRequest('No file was uploaded');
         }
 
-        return uploadToLibrary(request.auth.credentials as unknown as User, {
-          stream: payload.file,
-          mimeType: payload.file.hapi.headers['content-type']?.split(';')[0] ?? '',
-          filename: payload.file.hapi.filename,
-          title: payload.title,
-          description: payload.description,
-          author: payload.author,
-          licenceId: payload.licenceId,
-        });
+        return uploadToLibrary(
+          request.auth.credentials as unknown as User,
+          Number(request.params.articleId),
+          {
+            stream: payload.file,
+            mimeType: payload.file.hapi.headers['content-type']?.split(';')[0] ?? '',
+            filename: payload.file.hapi.filename,
+            title: payload.title,
+            description: payload.description,
+            author: payload.author,
+            licenceId: payload.licenceId,
+          },
+        );
       },
     });
 
@@ -118,11 +121,7 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
           author?: string;
           licenceId?: string;
         };
-        return updateLibraryItem(
-          request.auth.credentials as unknown as User,
-          Number(request.params.id),
-          input,
-        );
+        return updateLibraryItem(Number(request.params.id), input);
       },
     });
 
@@ -134,8 +133,9 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
           payload: Joi.object({
             sourceType: Joi.string().valid(...SOURCE_TYPES).required(),
             externalId: Joi.string().min(1).max(500).required(),
-            // Supplies the project context that decides which sibling languages to fetch.
-            articleId: Joi.number().integer().optional(),
+            // The article whose library this goes into, and whose project decides
+            // which sibling languages are fetched alongside.
+            articleId: Joi.number().integer().required(),
           }),
         },
       },
@@ -143,7 +143,7 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
         const { sourceType, externalId, articleId } = request.payload as {
           sourceType: SourceType;
           externalId: string;
-          articleId?: number;
+          articleId: number;
         };
         return importToLibrary(
           request.auth.credentials as unknown as User,

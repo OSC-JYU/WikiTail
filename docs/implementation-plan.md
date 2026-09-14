@@ -30,6 +30,10 @@ See [`idea.md`](../idea.md) for the original concept.
   admin approval). Only published articles appear in public browse.
 - **Tail is not comments**: only the article's author curates Tail entries (library item + optional
   commentary); no visitor-facing interaction.
+- **The library belongs to an article**, not to a person: several people may work on one project, so
+  material gathered for an article is visible to all of them. It hangs off the *translation group*, so
+  the language versions of an article share one library — which is what lets a tail entry resolve to
+  the reader's language and a copied tail keep working.
 - **Licensing**: every item stores licence, author and source so it can be credited the way Creative
   Commons asks (title, author, source, licence). Imported work keeps the licence and credit of its
   source — those are not ours to restate — while uploads carry a licence the uploader chooses,
@@ -139,7 +143,8 @@ articles(id PK, project_id NOT NULL REFERENCES projects(id), slug, title,
          UNIQUE(project_id, language, slug),       -- slugs differ per language; collisions allowed across languages
          UNIQUE(translation_group_id, language))   -- at most one version per language
 
-library_items(id PK, owner_id NOT NULL REFERENCES users(id),
+library_items(id PK,
+              translation_group_id NOT NULL REFERENCES translation_groups(id),  -- the article library
               description,                         -- the author's own caption
               author,                              -- creator of the work, for citation
               source_type CHECK IN ('wikipedia','wikidata','commons','finna','local_upload'),
@@ -149,7 +154,8 @@ library_items(id PK, owner_id NOT NULL REFERENCES users(id),
               title NOT NULL, snapshot_html TEXT, snapshot_json TEXT,
               local_file_id NULL REFERENCES local_files(id),
               license_name, license_url, attribution_text,
-              imported_at NOT NULL, imported_by NOT NULL REFERENCES users(id), created_at)
+              imported_at NOT NULL, imported_by NOT NULL REFERENCES users(id), created_at,
+              UNIQUE (translation_group_id, source_type, external_id))
 
 local_files(id PK, owner_id REFERENCES users(id), disk_path NOT NULL, original_filename,
             mime_type, byte_size, kind CHECK IN ('image','audio','video','other'), created_at)

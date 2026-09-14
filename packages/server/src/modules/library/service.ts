@@ -10,7 +10,7 @@ import type {
   User,
 } from '@wikitail/shared';
 import { DEFAULT_UPLOAD_LICENCE, findLicence } from '@wikitail/shared';
-import { forbidden, notFound } from '../../lib/errors.js';
+import { notFound } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { articlesRepository } from '../articles/repository.js';
 import { filesRepository } from '../files/repository.js';
@@ -34,17 +34,25 @@ export function searchSource(
   return getAdapter(sourceType).search(query, { limit, language });
 }
 
-export function listLibrary(actor: User): LibraryItemSummary[] {
-  return libraryRepository.listByOwner(actor.id);
+/**
+ * The library of an article, shared by its language versions and by everyone
+ * working on it — gathering material is collaborative, so it is not scoped to
+ * whoever happened to press Import.
+ */
+export function listLibrary(articleId: number): LibraryItemSummary[] {
+  return libraryRepository.listByGroup(groupFor(articleId));
 }
 
-export function getLibraryItem(actor: User, id: number): LibraryItem {
+export function getLibraryItem(id: number): LibraryItem {
   const item = libraryRepository.findById(id);
   if (!item) notFound('Library item');
-  if (item.ownerId !== actor.id) {
-    forbidden('This library item belongs to another user');
-  }
   return item;
+}
+
+function groupFor(articleId: number): number {
+  const article = articlesRepository.findById(articleId);
+  if (!article) notFound('Article');
+  return article.translationGroupId;
 }
 
 /**
@@ -57,10 +65,11 @@ export async function importToLibrary(
   actor: User,
   sourceType: SourceType,
   externalId: string,
-  articleId?: number,
+  articleId: number,
 ): Promise<ImportResult> {
+  const group = groupFor(articleId);
   const adapter = getAdapter(sourceType);
-  const existing = libraryRepository.findByExternalId(actor.id, sourceType, externalId);
+  const existing = libraryRepository.findByExternalId(group, sourceType, externalId);
 
   // Re-importing does not re-fetch content, but sibling languages are still
   // resolved: the project may have gained a language since the first import.
@@ -71,7 +80,7 @@ export async function importToLibrary(
     item = existing;
   } else {
     const snapshot = await adapter.importItem(externalId);
-    item = persist(actor, snapshot);
+    item = persist(actor, group, snapshot);
     siblingIds = snapshot.siblings ?? {};
   }
 
@@ -91,13 +100,13 @@ export async function importToLibrary(
   for (const language of wanted) {
     const siblingId = siblingIds[language];
     if (!siblingId) continue;
-    const alreadyHave = libraryRepository.findByExternalId(actor.id, sourceType, siblingId);
+    const alreadyHave = libraryRepository.findByExternalId(group, sourceType, siblingId);
     if (alreadyHave) {
       siblings.push(alreadyHave);
       continue;
     }
     try {
-      siblings.push(persist(actor, await adapter.importItem(siblingId)));
+      siblings.push(persist(actor, group, await adapter.importItem(siblingId)));
     } catch (err) {
       // A concept with no page in that language, or a wiki hiccup, must not fail
       // the import the author actually asked for.
@@ -114,6 +123,7 @@ export async function importToLibrary(
  */
 export async function uploadToLibrary(
   actor: User,
+  articleId: number,
   input: {
     stream: Readable;
     mimeType: string;
@@ -130,6 +140,7 @@ export async function uploadToLibrary(
     );
   }
 
+  const group = groupFor(articleId);
   const licence = findLicence(input.licenceId ?? DEFAULT_UPLOAD_LICENCE);
   if (!licence) {
     throw Boom.badRequest(`Unknown licence: ${input.licenceId}`);
@@ -146,7 +157,7 @@ export async function uploadToLibrary(
   });
 
   return libraryRepository.create({
-    ownerId: actor.id,
+    translationGroupId: group,
     sourceType: 'local_upload',
     externalId: null,
     externalUrl: null,
@@ -172,11 +183,10 @@ export async function uploadToLibrary(
  * whoever made it, and are not ours to restate.
  */
 export function updateLibraryItem(
-  actor: User,
   id: number,
   input: { description?: string | null; title?: string; author?: string; licenceId?: string },
 ): LibraryItemSummary {
-  const item = getLibraryItem(actor, id);
+  const item = getLibraryItem(id);
   const ownUpload = item.sourceType === 'local_upload';
 
   if (!ownUpload && (input.title || input.author || input.licenceId)) {
@@ -198,7 +208,7 @@ export function updateLibraryItem(
   });
 }
 
-function persist(actor: User, snapshot: SourceSnapshot): LibraryItemSummary {
+function persist(actor: User, group: number, snapshot: SourceSnapshot): LibraryItemSummary {
   // Media is stored on disk and referenced, rather than held in SQLite: binaries
   // are file-shaped, and hapi serves them straight from /uploads.
   let localFileId: number | null = null;
@@ -217,7 +227,7 @@ function persist(actor: User, snapshot: SourceSnapshot): LibraryItemSummary {
 
   return libraryRepository.create({
     localFileId,
-    ownerId: actor.id,
+    translationGroupId: group,
     sourceType: snapshot.sourceType,
     externalId: snapshot.externalId,
     externalUrl: snapshot.externalUrl,
@@ -237,8 +247,7 @@ function persist(actor: User, snapshot: SourceSnapshot): LibraryItemSummary {
 }
 
 /** The project's languages, minus the one just imported. */
-function siblingLanguagesFor(articleId: number | undefined, imported: string | null): string[] {
-  if (articleId === undefined) return [];
+function siblingLanguagesFor(articleId: number, imported: string | null): string[] {
   const article = articlesRepository.findById(articleId);
   if (!article) return [];
   const project = projectsRepository.findById(article.projectId);
@@ -247,11 +256,9 @@ function siblingLanguagesFor(articleId: number | undefined, imported: string | n
 }
 
 /** Resolves a library item to its version in `language`, falling back to the item itself. */
-export function resolveInLanguage(
-  actor: User,
-  item: LibraryItemSummary,
-  language: string,
-): LibraryItemSummary {
+export function resolveInLanguage(item: LibraryItemSummary, language: string): LibraryItemSummary {
   if (item.language === language || !item.conceptId) return item;
-  return libraryRepository.findByConcept(actor.id, item.conceptId, language) ?? item;
+  return (
+    libraryRepository.findByConcept(item.translationGroupId, item.conceptId, language) ?? item
+  );
 }

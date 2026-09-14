@@ -17,10 +17,7 @@ async function load() {
   entries.value = await tailApi.list(props.articleId);
 }
 
-onMounted(async () => {
-  if (!library.loaded) await library.fetchAll();
-  await load();
-});
+onMounted(load);
 watch(() => props.articleId, load);
 
 async function add(libraryItemId: number) {

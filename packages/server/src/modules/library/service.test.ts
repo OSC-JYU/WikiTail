@@ -11,16 +11,29 @@ process.env.UPLOADS_DIR = uploadsDir;
 
 const { db } = await import('../../db/connection.js');
 const { usersRepository } = await import('../users/repository.js');
+const { projectsRepository } = await import('../projects/repository.js');
+const { createArticle } = await import('../articles/service.js');
 const { libraryRepository } = await import('./repository.js');
 const { updateLibraryItem, uploadToLibrary } = await import('./service.js');
 
 const actor = usersRepository.upsertByEmail('tester@wikitail.local', 'author');
 
+function makeArticle() {
+  const project = projectsRepository.create({
+    slug: `p-${Math.random().toString(36).slice(2)}`,
+    title: 'Test project',
+    description: null,
+    createdBy: actor.id,
+    languages: ['fi'],
+  });
+  return createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
+}
+
 const png = () => Readable.from([Buffer.from('not really a png, but bytes are bytes')]);
 
-function importedItem() {
+function importedItem(translationGroupId: number) {
   return libraryRepository.create({
-    ownerId: actor.id,
+    translationGroupId,
     sourceType: 'commons',
     externalId: 'commons:File:Stone.jpg',
     externalUrl: 'https://commons.wikimedia.org/wiki/File:Stone.jpg',
@@ -43,6 +56,8 @@ function importedItem() {
 beforeEach(() => {
   db.prepare('DELETE FROM library_items').run();
   db.prepare('DELETE FROM local_files').run();
+  db.prepare('DELETE FROM articles').run();
+  db.prepare('DELETE FROM translation_groups').run();
 });
 
 afterAll(() => {
@@ -53,7 +68,7 @@ afterAll(() => {
 
 describe('uploading your own file', () => {
   it('defaults to CC BY, because attribution is the point of sharing', async () => {
-    const item = await uploadToLibrary(actor, {
+    const item = await uploadToLibrary(actor, makeArticle().id, {
       stream: png(),
       mimeType: 'image/png',
       filename: 'kivi.png',
@@ -63,7 +78,7 @@ describe('uploading your own file', () => {
   });
 
   it('records the chosen licence, description and credit', async () => {
-    const item = await uploadToLibrary(actor, {
+    const item = await uploadToLibrary(actor, makeArticle().id, {
       stream: png(),
       mimeType: 'image/png',
       filename: 'kivi.png',
@@ -79,7 +94,7 @@ describe('uploading your own file', () => {
   });
 
   it('credits the uploader when no creator is named', async () => {
-    const item = await uploadToLibrary(actor, {
+    const item = await uploadToLibrary(actor, makeArticle().id, {
       stream: png(),
       mimeType: 'image/png',
       filename: 'kivi.png',
@@ -89,7 +104,7 @@ describe('uploading your own file', () => {
 
   it('refuses a licence it does not know', async () => {
     await expect(
-      uploadToLibrary(actor, {
+      uploadToLibrary(actor, makeArticle().id, {
         stream: png(),
         mimeType: 'image/png',
         filename: 'k.png',
@@ -101,8 +116,8 @@ describe('uploading your own file', () => {
 
 describe('editing a library item', () => {
   it('lets the owner caption an imported item', () => {
-    const item = importedItem();
-    const updated = updateLibraryItem(actor, item.id, { description: 'Matti istui tällä kivellä.' });
+    const item = importedItem(makeArticle().translationGroupId);
+    const updated = updateLibraryItem(item.id, { description: 'Matti istui tällä kivellä.' });
     expect(updated.description).toBe('Matti istui tällä kivellä.');
     // The source's own credit is untouched.
     expect(updated.author).toBe('Tiia Monto');
@@ -112,22 +127,22 @@ describe('editing a library item', () => {
   // Relicensing or re-crediting someone else's work would be a licence violation
   // dressed up as an edit box.
   it('refuses to restate the licence or credit of imported work', () => {
-    const item = importedItem();
-    expect(() => updateLibraryItem(actor, item.id, { licenceId: 'cc0-1.0' })).toThrow(
+    const item = importedItem(makeArticle().translationGroupId);
+    expect(() => updateLibraryItem(item.id, { licenceId: 'cc0-1.0' })).toThrow(
       /keep the title, credit and licence of their source/,
     );
-    expect(() => updateLibraryItem(actor, item.id, { author: 'Me, actually' })).toThrow(
+    expect(() => updateLibraryItem(item.id, { author: 'Me, actually' })).toThrow(
       /keep the title, credit and licence of their source/,
     );
   });
 
   it('allows relicensing your own upload', async () => {
-    const item = await uploadToLibrary(actor, {
+    const item = await uploadToLibrary(actor, makeArticle().id, {
       stream: png(),
       mimeType: 'image/png',
       filename: 'mine.png',
     });
-    const updated = updateLibraryItem(actor, item.id, {
+    const updated = updateLibraryItem(item.id, {
       licenceId: 'cc-by-sa-4.0',
       author: 'Ari Häyrinen',
     });

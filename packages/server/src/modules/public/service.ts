@@ -92,7 +92,8 @@ function resolveEmbeds(bodyMarkdown: string, language: string) {
     if (!stored) return [];
     if (!stored.conceptId || stored.language === language) return [stored];
     return [
-      libraryRepository.findByConcept(stored.ownerId, stored.conceptId, language) ?? stored,
+      libraryRepository.findByConcept(stored.translationGroupId, stored.conceptId, language) ??
+        stored,
     ];
   });
 }

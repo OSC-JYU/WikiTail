@@ -58,7 +58,8 @@ export type LocalFileKind = 'image' | 'audio' | 'video' | 'other';
 
 export interface LibraryItem {
   id: number;
-  ownerId: number;
+  /** The article library this belongs to — shared by the article's language versions. */
+  translationGroupId: number;
   sourceType: SourceType;
   externalId: string | null;
   externalUrl: string | null;

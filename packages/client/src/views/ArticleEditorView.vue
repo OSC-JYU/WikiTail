@@ -18,7 +18,7 @@ const router = useRouter();
 const library = useLibraryStore();
 
 // The Finna tab arrives with its adapter.
-const tabs = ['Article', 'Wiki world', 'Commons', 'Local', 'My Library', 'Tail'] as const;
+const tabs = ['Article', 'Wiki world', 'Commons', 'Local', 'Article library', 'Tail'] as const;
 const activeTab = ref<(typeof tabs)[number]>('Article');
 
 const article = ref<Article | null>(null);
@@ -38,6 +38,9 @@ async function load(id: number) {
   [project.value, versions.value] = await Promise.all([
     projectsApi.get(props.slug),
     articlesApi.versions(id),
+    // The library belongs to this article, so it is reloaded when the article
+    // changes rather than carried over.
+    library.fetchFor(id),
   ]);
 }
 
@@ -183,14 +186,14 @@ async function save(status: 'draft' | 'published') {
     </section>
 
     <section v-show="activeTab === 'Commons'">
-      <CommonsTab />
+      <CommonsTab :article-id="article.id" />
     </section>
 
     <section v-show="activeTab === 'Local'">
-      <LocalTab />
+      <LocalTab :article-id="article.id" />
     </section>
 
-    <section v-show="activeTab === 'My Library'">
+    <section v-show="activeTab === 'Article library'">
       <MyLibraryTab @insert="insertLibraryRef" />
     </section>
 

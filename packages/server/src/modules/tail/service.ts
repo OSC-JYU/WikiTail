@@ -31,12 +31,15 @@ export function listTail(articleId: number): TailEntryView[] {
     const stored = libraryRepository.findSummaryById(entry.libraryItemId);
     if (!stored) return [];
 
-    // Siblings are looked up in the author's library, not the viewer's — the tail
-    // is the author's curation, and public readers have no library at all.
+    // Resolved within this article's own library, which its language versions
+    // share — so the English version shows the English snapshot of the concept.
     const resolved =
       stored.conceptId && stored.language !== article.language
-        ? (libraryRepository.findByConcept(stored.ownerId, stored.conceptId, article.language) ??
-          stored)
+        ? (libraryRepository.findByConcept(
+            stored.translationGroupId,
+            stored.conceptId,
+            article.language,
+          ) ?? stored)
         : stored;
 
     return [
@@ -54,12 +57,12 @@ export function addToTail(
   articleId: number,
   input: { libraryItemId: number; commentary: string | null },
 ): TailEntry {
-  requireOwnership(actor, articleId);
+  const article = requireOwnership(actor, articleId);
 
   const item = libraryRepository.findSummaryById(input.libraryItemId);
   if (!item) notFound('Library item');
-  if (item.ownerId !== actor.id) {
-    forbidden('That library item belongs to another user');
+  if (item.translationGroupId !== article.translationGroupId) {
+    throw Boom.badRequest('That item is in a different article library');
   }
 
   return tailRepository.create({ articleId, ...input });

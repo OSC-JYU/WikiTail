@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { ref } from 'vue';
 import { UPLOAD_LICENCES, type LibraryItem, type LibraryItemSummary } from '@wikitail/shared';
 import { libraryApi } from '../../api/library';
 import { useLibraryStore } from '../../stores/library';
@@ -20,10 +20,6 @@ const savingDescription = ref(false);
 const isOwnUpload = (item: LibraryItemSummary) => item.sourceType === 'local_upload';
 const licenceIdFor = (name: string | null) =>
   UPLOAD_LICENCES.find((licence) => licence.name === name)?.id ?? '';
-
-onMounted(() => {
-  if (!library.loaded) library.fetchAll();
-});
 
 async function preview(id: number) {
   if (selected.value?.id === id) {
@@ -62,7 +58,7 @@ async function saveDescription(item: LibraryItemSummary) {
 
 <template>
   <p v-if="library.loaded && library.items.length === 0">
-    Nothing imported yet — use the Wiki world tab to search and import.
+    Nothing gathered for this article yet — use the Wiki world, Commons or Local tabs.
   </p>
 
   <ul class="items">

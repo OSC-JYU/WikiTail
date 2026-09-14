@@ -446,6 +446,59 @@ Finna notes:
   commercial is the operator's fact to know, not ours to assume.
 - Finna's terms ask for the creator **and** the holding organisation, so the credit names both.
 
+### M6 — Static site export (planned)
+
+Export a project as plain files that any web server can host, so the editor runs
+locally — on an author's machine — and only the built site is published. Nothing
+public to attack, nothing public to keep patched, and a folder that can be backed
+up or handed to an archive.
+
+**Why this fits.** Most apps cannot be exported this way because their public side
+does something per visitor. Wikitail's does not: browsing is read-only by design,
+there are no comments, accounts or likes, and authentication exists only for
+editing. Media is already copied to disk rather than hotlinked, so an export is
+self-contained. The public API surface is small and already computes exactly what
+a reader needs — `listProjectContent`, `getArticle`, `getLibraryItem` — so an
+exporter can call those services directly rather than through HTTP.
+
+**Shape.**
+
+- A command in the server package (`npm run export -- --project <slug> --out <dir>`)
+  reusing the public service functions; no running server required.
+- **Pre-rendered HTML per page**, not the SPA plus a JSON dump. It costs more to
+  build, but the result reads without JavaScript, survives bundler rot, and is
+  what a local-history archive should still be in fifteen years. JavaScript stays
+  for enhancement only — the image and article dialog, which degrades to a plain
+  link without it.
+- Real directories per route (`/p/<project>/<language>/<slug>/index.html`) rather
+  than history-mode routing, so no server rewrite rule is needed and the site
+  works on anything, including a plain file host.
+- `uploads/` copied across; a configurable base path so it can live in a
+  subdirectory.
+- Only published articles, which is already the public rule. The
+  "write this translation" call to action degrades to the plain missing-translation
+  notice, since there is no editor to link to.
+
+**This makes hard copies worth more than they look.** An exported site on live
+links still depends on Wikipedia being reachable when a reader opens a dialog;
+one on hard copies is genuinely self-contained. The two settings serve different
+goals — live links keep the working database small, hard copies make an export
+survive on its own — so a project aiming at a published archive may well want to
+switch before exporting, and the exporter should say so rather than let it come
+as a surprise.
+
+**Open questions.**
+
+- **Search.** There is no server to query. A small client-side index over titles
+  and article text would cover it, or the first version can simply omit search.
+- **Running "locally" still means running something.** Node and SQLite on the
+  author's machine — no public server, but not zero-install either. Whether that
+  eventually wants packaging as a desktop app is a separate question.
+- **Multiple projects per site**, or one export per project? One project per
+  export is simpler and matches how the setting is scoped.
+- **Incremental export** is probably unnecessary at this scale; a full rebuild is
+  simpler and fast enough.
+
 ## Package choices
 
 - **hapi**: `@hapi/hapi`, `@hapi/inert`, `@hapi/boom`, `joi` for route validation.

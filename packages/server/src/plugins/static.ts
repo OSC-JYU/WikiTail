@@ -26,7 +26,26 @@ export const staticPlugin: Plugin<undefined> = {
     server.route({
       method: 'GET',
       path: '/uploads/{param*}',
-      options: { auth: false },
+      options: {
+        auth: false,
+        // These files come from users and from Commons, and they are served from
+        // the app's own origin. An SVG can carry script, so navigating straight
+        // to one would otherwise run it here: sandbox the response and stop the
+        // browser sniffing a different type than we declared.
+        ext: {
+          onPostHandler: {
+            method: (request, h) => {
+              // Boom errors are Errors; a served file is a ResponseObject.
+              const response = request.response;
+              if (!(response instanceof Error)) {
+                response.header('Content-Security-Policy', "sandbox; default-src 'none'");
+                response.header('X-Content-Type-Options', 'nosniff');
+              }
+              return h.continue;
+            },
+          },
+        },
+      },
       handler: {
         directory: { path: config.uploadsDir, redirectToSlash: false },
       },

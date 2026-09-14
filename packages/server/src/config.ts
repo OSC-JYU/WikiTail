@@ -46,4 +46,6 @@ export const config = {
    */
   commonsImageWidth: Number(env('COMMONS_IMAGE_WIDTH', '1600')),
   maxImportBytes: Number(env('MAX_IMPORT_BYTES', String(25 * 1024 * 1024))),
+  /** Ceiling for a user's own upload; video is the reason this is larger. */
+  maxUploadBytes: Number(env('MAX_UPLOAD_BYTES', String(200 * 1024 * 1024))),
 };

@@ -1,7 +1,21 @@
+import Boom from '@hapi/boom';
 import type { Plugin, Server } from '@hapi/hapi';
 import Joi from 'joi';
 import type { SourceType, User } from '@wikitail/shared';
-import { getLibraryItem, importToLibrary, listLibrary, searchSource } from './service.js';
+import type { Readable } from 'node:stream';
+import { config } from '../../config.js';
+import {
+  getLibraryItem,
+  importToLibrary,
+  listLibrary,
+  searchSource,
+  uploadToLibrary,
+} from './service.js';
+
+/** A file part parsed by hapi in stream mode. */
+interface UploadPart extends Readable {
+  hapi: { filename: string; headers: Record<string, string> };
+}
 
 const SOURCE_TYPES = ['wikipedia', 'wikidata', 'commons', 'finna', 'local_upload'];
 
@@ -42,6 +56,41 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
       path: '/api/library/{id}',
       handler: (request) =>
         getLibraryItem(request.auth.credentials as unknown as User, Number(request.params.id)),
+    });
+
+    server.route({
+      method: 'POST',
+      path: '/api/library/upload',
+      options: {
+        payload: {
+          // Streamed rather than buffered: an upload can be a large video, and
+          // hapi rejects anything over the ceiling before it reaches the handler.
+          output: 'stream',
+          parse: true,
+          multipart: { output: 'stream' },
+          maxBytes: config.maxUploadBytes,
+          allow: 'multipart/form-data',
+          timeout: false,
+        },
+      },
+      handler: (request) => {
+        const payload = request.payload as {
+          file?: UploadPart;
+          title?: string;
+          attributionText?: string;
+        };
+        if (!payload.file?.hapi?.filename) {
+          throw Boom.badRequest('No file was uploaded');
+        }
+
+        return uploadToLibrary(request.auth.credentials as unknown as User, {
+          stream: payload.file,
+          mimeType: payload.file.hapi.headers['content-type']?.split(';')[0] ?? '',
+          filename: payload.file.hapi.filename,
+          title: payload.title,
+          attributionText: payload.attributionText,
+        });
+      },
     });
 
     server.route({

@@ -1,7 +1,7 @@
 # Wikitail — Implementation Plan
 
-Status: **M0-M4 complete; M5 in progress** — the Commons adapter is done, admin role
-management and local uploads remain.
+Status: **M0-M5 complete.** Remaining work is the Finna adapter and the deferred
+snapshot-refresh question.
 
 Wikitail is a self-hosted, multi-user app for writing local articles (markdown) enriched with
 content imported from external "wiki world" sources — Wikipedia first, then Wikimedia Commons,
@@ -377,12 +377,11 @@ Implementation notes:
 - Language codes are shown through `Intl.DisplayNames`, so a Finnish reader sees "englanti" rather
   than "en".
 
-### M5 — Polish and second adapter ⬅ in progress
+### M5 — Polish and second adapter ✅ done
 
 Commons adapter (chosen over Wikidata as the second *content* source — it exercises the binary media
 path via `local_files`, validating the interface for media and not just text) + `CommonsTab.vue`
-✅ done. Still to do: admin role management, the Local tab for uploading your own files, and
-loading/error-state polish.
+✅ done, along with the Local tab for uploading your own files and admin role management.
 
 Commons implementation notes:
 
@@ -399,6 +398,20 @@ Commons implementation notes:
   the schema and tail resolution already allowed for.
 - Media is written to `uploads/<2 chars>/<uuid>.<ext>` and served by the existing `/uploads` route;
   the name is random because an uploader-supplied one could collide or escape the directory.
+
+Local upload notes:
+
+- Uploads are **streamed to disk**, not buffered — a video can be hundreds of megabytes. hapi rejects
+  anything over `MAX_UPLOAD_BYTES` before it reaches the handler, and a failed write leaves no stray
+  file behind.
+- The accepted types are a **narrow allowlist**, and SVG is deliberately excluded: these files are
+  served from the app's own origin, and an SVG can carry script.
+- Commons can still bring in an SVG, so `/uploads` responses also carry
+  `Content-Security-Policy: sandbox; default-src 'none'` and `X-Content-Type-Options: nosniff`.
+  Navigating straight to an uploaded file therefore cannot execute anything in our origin.
+- Roles are managed in the app, not by the SSO proxy, which supplies identity only. An admin cannot
+  demote themselves — that is nearly always a slip, and it could leave an instance with nobody able
+  to create projects.
 
 ## Package choices
 

@@ -8,14 +8,15 @@ import { tailApi } from '../api/tail';
 import WikiWorldTab from '../components/editor/WikiWorldTab.vue';
 import MyLibraryTab from '../components/editor/MyLibraryTab.vue';
 import CommonsTab from '../components/editor/CommonsTab.vue';
+import LocalTab from '../components/editor/LocalTab.vue';
 import TailEditor from '../components/editor/TailEditor.vue';
 import ArticlePreview from '../components/editor/ArticlePreview.vue';
 
 const props = defineProps<{ slug: string; id: string }>();
 const router = useRouter();
 
-// Finna and Local tabs arrive with their adapters.
-const tabs = ['Article', 'Wiki world', 'Commons', 'My Library', 'Tail'] as const;
+// The Finna tab arrives with its adapter.
+const tabs = ['Article', 'Wiki world', 'Commons', 'Local', 'My Library', 'Tail'] as const;
 const activeTab = ref<(typeof tabs)[number]>('Article');
 
 const article = ref<Article | null>(null);
@@ -174,6 +175,10 @@ async function save(status: 'draft' | 'published') {
 
     <section v-show="activeTab === 'Commons'">
       <CommonsTab />
+    </section>
+
+    <section v-show="activeTab === 'Local'">
+      <LocalTab />
     </section>
 
     <section v-show="activeTab === 'My Library'">

@@ -1,6 +1,8 @@
 import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import type { Readable } from 'node:stream';
+import { pipeline } from 'node:stream/promises';
 import type { LocalFileKind } from '@wikitail/shared';
 import { config } from '../../config.js';
 
@@ -21,6 +23,34 @@ const EXTENSIONS: Record<string, string> = {
   'application/pdf': 'pdf',
 };
 
+/**
+ * What may be uploaded. Deliberately narrow: these files are served from the
+ * app's own origin, and SVG is excluded because it can carry script — Commons
+ * may still bring one in, which is why the uploads route is sandboxed too.
+ */
+const UPLOADABLE = new Set([
+  'image/jpeg',
+  'image/png',
+  'image/gif',
+  'image/webp',
+  'audio/mpeg',
+  'audio/ogg',
+  'audio/wav',
+  'audio/flac',
+  'video/mp4',
+  'video/webm',
+  'video/ogg',
+  'application/pdf',
+]);
+
+export function isUploadable(mimeType: string): boolean {
+  return UPLOADABLE.has(mimeType);
+}
+
+export function uploadableTypes(): string[] {
+  return [...UPLOADABLE];
+}
+
 export function kindFor(mimeType: string): LocalFileKind {
   if (mimeType.startsWith('image/')) return 'image';
   if (mimeType.startsWith('audio/')) return 'audio';
@@ -34,17 +64,45 @@ export function kindFor(mimeType: string): LocalFileKind {
  * /uploads to form a URL. The name is random: an uploader-supplied name could
  * collide or escape the directory.
  */
-export function writeMedia(buffer: Uint8Array, mimeType: string): { diskPath: string } {
+function targetFor(mimeType: string): { relative: string; absolute: string } {
   const extension = EXTENSIONS[mimeType] ?? 'bin';
   // One level of fan-out keeps the directory listing manageable as this grows.
   const id = crypto.randomUUID();
   const relative = path.join(id.slice(0, 2), `${id}.${extension}`);
   const absolute = path.join(config.uploadsDir, relative);
-
   fs.mkdirSync(path.dirname(absolute), { recursive: true });
-  fs.writeFileSync(absolute, buffer);
+  return { relative, absolute };
+}
 
+export function writeMedia(buffer: Uint8Array, mimeType: string): { diskPath: string } {
+  const { relative, absolute } = targetFor(mimeType);
+  fs.writeFileSync(absolute, buffer);
   return { diskPath: relative };
+}
+
+/**
+ * Streams an upload to disk rather than buffering it — a video can be hundreds
+ * of megabytes, and holding that in memory to write it out again is pointless.
+ * A failed write leaves no stray file behind.
+ */
+export async function writeMediaStream(
+  stream: Readable,
+  mimeType: string,
+): Promise<{ diskPath: string; byteSize: number }> {
+  const { relative, absolute } = targetFor(mimeType);
+  let byteSize = 0;
+  stream.on('data', (chunk: Buffer) => {
+    byteSize += chunk.length;
+  });
+
+  try {
+    await pipeline(stream, fs.createWriteStream(absolute));
+  } catch (err) {
+    fs.rmSync(absolute, { force: true });
+    throw err;
+  }
+
+  return { diskPath: relative, byteSize };
 }
 
 export function mediaUrl(diskPath: string): string {

@@ -1,3 +1,5 @@
+import type { Readable } from 'node:stream';
+import Boom from '@hapi/boom';
 import type {
   ImportResult,
   LibraryItem,
@@ -11,7 +13,13 @@ import { forbidden, notFound } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { articlesRepository } from '../articles/repository.js';
 import { filesRepository } from '../files/repository.js';
-import { kindFor, writeMedia } from '../files/storage.js';
+import {
+  isUploadable,
+  kindFor,
+  uploadableTypes,
+  writeMedia,
+  writeMediaStream,
+} from '../files/storage.js';
 import { projectsRepository } from '../projects/repository.js';
 import { getAdapter } from '../sources/registry.js';
 import { libraryRepository } from './repository.js';
@@ -97,6 +105,55 @@ export async function importToLibrary(
   }
 
   return { item, siblings };
+}
+
+/**
+ * Stores a file the author uploaded themselves. Unlike an imported item there is
+ * no external source to attribute, so the title and any credit come from them.
+ */
+export async function uploadToLibrary(
+  actor: User,
+  input: {
+    stream: Readable;
+    mimeType: string;
+    filename: string;
+    title?: string;
+    attributionText?: string;
+  },
+): Promise<LibraryItemSummary> {
+  if (!isUploadable(input.mimeType)) {
+    throw Boom.unsupportedMediaType(
+      `${input.mimeType} cannot be uploaded. Allowed: ${uploadableTypes().join(', ')}`,
+    );
+  }
+
+  const { diskPath, byteSize } = await writeMediaStream(input.stream, input.mimeType);
+  const file = filesRepository.create({
+    ownerId: actor.id,
+    diskPath,
+    originalFilename: input.filename,
+    mimeType: input.mimeType,
+    byteSize,
+    kind: kindFor(input.mimeType),
+  });
+
+  return libraryRepository.create({
+    ownerId: actor.id,
+    sourceType: 'local_upload',
+    externalId: null,
+    externalUrl: null,
+    sourceRevision: null,
+    language: null,
+    conceptId: null,
+    title: input.title?.trim() || input.filename,
+    snapshotHtml: null,
+    snapshotJson: null,
+    localFileId: file.id,
+    licenseName: null,
+    licenseUrl: null,
+    attributionText: input.attributionText?.trim() || null,
+    importedBy: actor.id,
+  });
 }
 
 function persist(actor: User, snapshot: SourceSnapshot): LibraryItemSummary {

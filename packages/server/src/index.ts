@@ -1,3 +1,5 @@
+import fs from 'node:fs';
+import path from 'node:path';
 import Hapi from '@hapi/hapi';
 import './db/connection.js'; // runs migrations as a side effect, before any repository imports
 import { config } from './config.js';
@@ -21,7 +23,10 @@ async function main() {
   await server.register(staticPlugin);
 
   await server.start();
-  logger.info(`Wikitail server running at ${server.info.uri} (auth mode: ${config.authMode})`);
+  logger.info(`Wikitail API listening on ${server.info.uri} (auth mode: ${config.authMode})`);
+  if (!fs.existsSync(path.join(config.clientDistDir, 'index.html'))) {
+    logger.info('Client not built — open the Vite dev server at http://localhost:5173');
+  }
 }
 
 main().catch((err) => {

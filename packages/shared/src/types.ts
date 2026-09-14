@@ -53,6 +53,9 @@ export interface LibraryItem {
   createdAt: string;
 }
 
+/** Library listing shape — omits snapshot bodies, which can be hundreds of KB each. */
+export type LibraryItemSummary = Omit<LibraryItem, 'snapshotHtml' | 'snapshotJson'>;
+
 export type LocalFileKind = 'image' | 'audio' | 'video' | 'other';
 
 export interface LocalFile {

@@ -37,5 +37,9 @@
     "save": "Tallenna",
     "licence": "Lisenssi",
     "addDescription": "Lisää kuvaus…"
+  },
+  "dialog": {
+    "close": "Sulje",
+    "view": "Katso"
   }
 }

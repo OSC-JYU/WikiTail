@@ -37,5 +37,9 @@
     "save": "Save",
     "licence": "Licence",
     "addDescription": "Add a description…"
+  },
+  "dialog": {
+    "close": "Close",
+    "view": "View"
   }
 }

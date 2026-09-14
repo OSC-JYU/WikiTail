@@ -1,7 +1,11 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
-import { splitArticleBody, type BrowseArticle } from '@wikitail/shared';
+import {
+  splitArticleBody,
+  type BrowseArticle,
+  type LibraryItemSummary,
+} from '@wikitail/shared';
 import { publicApi } from '../api/public';
 import { renderMarkdown } from '../lib/markdown';
 import { languageName } from '../lib/languageName';
@@ -9,6 +13,7 @@ import { useAuthStore } from '../stores/auth';
 import LanguageSwitcher from '../components/common/LanguageSwitcher.vue';
 import TailItemCard from '../components/browse/TailItemCard.vue';
 import MediaPreview from '../components/common/MediaPreview.vue';
+import ItemDialog from '../components/common/ItemDialog.vue';
 
 const props = defineProps<{ project: string; language: string; article: string }>();
 const { locale } = useI18n();
@@ -16,6 +21,7 @@ const auth = useAuthStore();
 
 const data = ref<BrowseArticle | null>(null);
 const notFound = ref(false);
+const viewing = ref<LibraryItemSummary | null>(null);
 
 async function load() {
   notFound.value = false;
@@ -91,7 +97,13 @@ const projectUsesLocale = computed(() => data.value?.project.languages.includes(
         <!-- Author markdown rendered with html:false — no raw HTML passes through. -->
         <div v-if="segment.kind === 'html'" class="prose" v-html="segment.html" />
         <figure v-else-if="embedFor(segment.id)" class="embed">
-          <MediaPreview v-if="embedFor(segment.id)!.mediaUrl" :item="embedFor(segment.id)!" />
+          <button
+            v-if="embedFor(segment.id)!.mediaUrl"
+            class="media-button"
+            @click="viewing = embedFor(segment.id)!"
+          >
+            <MediaPreview :item="embedFor(segment.id)!" />
+          </button>
           <figcaption v-if="embedFor(segment.id)!.description" class="caption">
             {{ embedFor(segment.id)!.description }}
           </figcaption>
@@ -127,8 +139,15 @@ const projectUsesLocale = computed(() => data.value?.project.languages.includes(
 
     <section v-if="data.tail.length" class="tail">
       <h2>{{ $t('browse.tailHeading') }}</h2>
-      <TailItemCard v-for="entry in data.tail" :key="entry.id" :entry="entry" />
+      <TailItemCard
+        v-for="entry in data.tail"
+        :key="entry.id"
+        :entry="entry"
+        @view="viewing = $event"
+      />
     </section>
+
+    <ItemDialog :item="viewing" source="public" @close="viewing = null" />
   </div>
 </template>
 
@@ -199,6 +218,13 @@ h1 {
 .missing-embed {
   color: var(--text-muted);
   font-size: 0.9rem;
+}
+.media-button {
+  flex-basis: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
 }
 .caption {
   flex-basis: 100%;

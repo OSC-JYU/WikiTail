@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import { UPLOAD_LICENCES, type LibraryItem, type LibraryItemSummary } from '@wikitail/shared';
 import { libraryApi } from '../../api/library';
 import { useLibraryStore } from '../../stores/library';
+import ItemDialog from '../common/ItemDialog.vue';
 import LicenseBadge from '../common/LicenseBadge.vue';
 import MediaPreview from '../common/MediaPreview.vue';
 
@@ -11,6 +12,7 @@ const emit = defineEmits<{ insert: [libraryItemId: number] }>();
 const library = useLibraryStore();
 const selected = ref<LibraryItem | null>(null);
 const loading = ref(false);
+const viewing = ref<LibraryItemSummary | null>(null);
 const draftDescription = ref('');
 const draftAuthor = ref('');
 const draftLicence = ref('');
@@ -83,7 +85,10 @@ async function saveDescription(item: LibraryItemSummary) {
       </div>
 
       <div v-if="selected?.id === item.id" class="preview">
-        <MediaPreview v-if="item.mediaUrl" :item="item" />
+        <button class="media-button" @click="viewing = item">
+          <MediaPreview v-if="item.mediaUrl" :item="item" />
+          <span v-else class="view-stored">{{ $t('browse.showSnapshot') }}</span>
+        </button>
 
         <label class="description">
           <span>{{ $t('credit.descriptionLabel') }}</span>
@@ -114,13 +119,13 @@ async function saveDescription(item: LibraryItemSummary) {
         </button>
 
         <LicenseBadge :item="item" />
-        <!-- Sanitized server-side on import; see sources/wikipedia/sanitize.ts -->
-        <div v-if="selected.snapshotHtml" class="snapshot" v-html="selected.snapshotHtml" />
       </div>
     </li>
   </ul>
 
   <p v-if="loading">Loading snapshot…</p>
+
+  <ItemDialog :item="viewing" @close="viewing = null" />
 </template>
 
 <style scoped>
@@ -202,6 +207,21 @@ async function saveDescription(item: LibraryItemSummary) {
 .preview {
   padding-bottom: 1rem;
 }
+.media-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: zoom-in;
+}
+.view-stored {
+  display: inline-block;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-decoration: underline;
+}
 .description {
   display: block;
   margin: 0.6rem 0 0.4rem;
@@ -225,27 +245,5 @@ async function saveDescription(item: LibraryItemSummary) {
   font-size: 0.8rem;
   padding: 0.2rem 0.6rem;
   margin-bottom: 0.5rem;
-}
-.snapshot {
-  max-height: 24rem;
-  overflow-y: auto;
-  border: 1px solid var(--border);
-  padding: 0.75rem;
-  font-size: 0.9rem;
-}
-/* Imported markup carries no classes of its own, so constrain it here. */
-.snapshot :deep(img) {
-  max-width: 100%;
-  height: auto;
-}
-.snapshot :deep(table) {
-  display: block;
-  overflow-x: auto;
-  border-collapse: collapse;
-}
-.snapshot :deep(td),
-.snapshot :deep(th) {
-  border: 1px solid var(--border);
-  padding: 0.25rem 0.4rem;
 }
 </style>

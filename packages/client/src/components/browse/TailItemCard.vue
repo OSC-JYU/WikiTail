@@ -1,27 +1,13 @@
 <script setup lang="ts">
-import { ref } from 'vue';
-import type { TailEntryView } from '@wikitail/shared';
-import { publicApi } from '../../api/public';
+import type { LibraryItemSummary, TailEntryView } from '@wikitail/shared';
 import LicenseBadge from '../common/LicenseBadge.vue';
 import MediaPreview from '../common/MediaPreview.vue';
 
-const props = defineProps<{ entry: TailEntryView }>();
+defineProps<{ entry: TailEntryView }>();
 
-const snapshot = ref<string | null>(null);
-const open = ref(false);
-const loading = ref(false);
-
-async function toggle() {
-  open.value = !open.value;
-  if (open.value && snapshot.value === null) {
-    loading.value = true;
-    try {
-      snapshot.value = (await publicApi.libraryItem(props.entry.item.id)).snapshotHtml ?? '';
-    } finally {
-      loading.value = false;
-    }
-  }
-}
+// One dialog is owned by the page rather than one per card, so a feed of twenty
+// cards does not carry twenty empty dialogs around.
+const emit = defineEmits<{ view: [item: LibraryItemSummary] }>();
 </script>
 
 <template>
@@ -29,7 +15,9 @@ async function toggle() {
     <!-- The author's own words come first; the imported material supports them. -->
     <p v-if="entry.commentary" class="commentary">{{ entry.commentary }}</p>
 
-    <MediaPreview v-if="entry.item.mediaUrl" :item="entry.item" class="card-media" />
+    <button v-if="entry.item.mediaUrl" class="media-button" @click="emit('view', entry.item)">
+      <MediaPreview :item="entry.item" />
+    </button>
     <p v-if="entry.item.description" class="caption">{{ entry.item.description }}</p>
 
     <div class="source">
@@ -41,14 +29,10 @@ async function toggle() {
     </div>
 
     <div class="actions">
-      <button v-if="!entry.item.mediaUrl" @click="toggle">
-        {{ open ? $t('browse.hideSnapshot') : $t('browse.showSnapshot') }}
+      <button @click="emit('view', entry.item)">
+        {{ entry.item.mediaUrl ? $t('dialog.view') : $t('browse.showSnapshot') }}
       </button>
     </div>
-
-    <p v-if="loading" class="loading">…</p>
-    <!-- Sanitized server-side at import; see sources/wikipedia/sanitize.ts -->
-    <div v-if="open && snapshot" class="snapshot" v-html="snapshot" />
 
     <LicenseBadge :item="entry.item" />
   </article>
@@ -61,18 +45,23 @@ async function toggle() {
   padding: 1rem;
   margin-bottom: 1rem;
 }
-.card-media {
-  margin-bottom: 0.4rem;
-}
-.caption {
-  font-size: 0.9rem;
-  color: var(--text-muted);
-  margin: 0 0 0.6rem;
-}
 .commentary {
   font-size: 1.05rem;
   line-height: 1.5;
   margin: 0 0 0.75rem;
+}
+.media-button {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: none;
+  cursor: zoom-in;
+}
+.caption {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0.4rem 0 0.6rem;
 }
 .source {
   display: flex;
@@ -102,24 +91,5 @@ async function toggle() {
 .actions button {
   padding: 0.25rem 0.6rem;
   font-size: 0.85rem;
-}
-.snapshot {
-  margin-top: 0.75rem;
-  max-height: 60vh;
-  overflow-y: auto;
-  border-top: 1px solid var(--border);
-  padding-top: 0.75rem;
-  font-size: 0.95rem;
-}
-.snapshot :deep(img) {
-  max-width: 100%;
-  height: auto;
-}
-.snapshot :deep(table) {
-  display: block;
-  overflow-x: auto;
-}
-.loading {
-  color: var(--text-muted);
 }
 </style>

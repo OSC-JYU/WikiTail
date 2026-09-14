@@ -1,5 +1,6 @@
 import { db } from '../../db/connection.js';
-import type { LibraryItem, LibraryItemSummary, SourceType } from '@wikitail/shared';
+import type { LibraryItem, LibraryItemSummary, LocalFileKind, SourceType } from '@wikitail/shared';
+import { mediaUrl } from '../files/storage.js';
 
 interface LibraryItemRow {
   id: number;
@@ -12,6 +13,8 @@ interface LibraryItemRow {
   concept_id: string | null;
   title: string;
   local_file_id: number | null;
+  disk_path: string | null;
+  media_kind: LocalFileKind | null;
   license_name: string | null;
   license_url: string | null;
   attribution_text: string | null;
@@ -26,9 +29,13 @@ interface FullLibraryItemRow extends LibraryItemRow {
 }
 
 const SUMMARY_COLUMNS = `
-  id, owner_id, source_type, external_id, external_url, source_revision, language, concept_id, title,
-  local_file_id, license_name, license_url, attribution_text, imported_at, imported_by, created_at
+  library_items.id, library_items.owner_id AS owner_id, source_type, external_id, external_url, source_revision, language,
+  concept_id, library_items.title, local_file_id, local_files.disk_path AS disk_path,
+  local_files.kind AS media_kind, license_name, license_url, attribution_text, imported_at,
+  imported_by, library_items.created_at AS created_at
 `;
+
+const FROM_WITH_FILE = 'FROM library_items LEFT JOIN local_files ON local_files.id = local_file_id';
 
 function toSummary(row: LibraryItemRow): LibraryItemSummary {
   return {
@@ -42,6 +49,8 @@ function toSummary(row: LibraryItemRow): LibraryItemSummary {
     conceptId: row.concept_id,
     title: row.title,
     localFileId: row.local_file_id,
+    mediaUrl: row.disk_path ? mediaUrl(row.disk_path) : null,
+    mediaKind: row.media_kind,
     licenseName: row.license_name,
     licenseUrl: row.license_url,
     attributionText: row.attribution_text,
@@ -60,27 +69,32 @@ function toFull(row: FullLibraryItemRow): LibraryItem {
 }
 
 const listStmt = db.prepare(
-  `SELECT ${SUMMARY_COLUMNS} FROM library_items WHERE owner_id = ? ORDER BY imported_at DESC`,
+  `SELECT ${SUMMARY_COLUMNS} ${FROM_WITH_FILE} WHERE library_items.owner_id = ? ORDER BY imported_at DESC`,
 );
-const findByIdStmt = db.prepare('SELECT * FROM library_items WHERE id = ?');
-const findSummaryByIdStmt = db.prepare(`SELECT ${SUMMARY_COLUMNS} FROM library_items WHERE id = ?`);
+const findByIdStmt = db.prepare(
+  `SELECT ${SUMMARY_COLUMNS}, snapshot_html, snapshot_json ${FROM_WITH_FILE}
+   WHERE library_items.id = ?`,
+);
+const findSummaryByIdStmt = db.prepare(
+  `SELECT ${SUMMARY_COLUMNS} ${FROM_WITH_FILE} WHERE library_items.id = ?`,
+);
 const findByExternalStmt = db.prepare(
-  `SELECT ${SUMMARY_COLUMNS} FROM library_items
-   WHERE owner_id = ? AND source_type = ? AND external_id = ?`,
+  `SELECT ${SUMMARY_COLUMNS} ${FROM_WITH_FILE}
+   WHERE library_items.owner_id = ? AND source_type = ? AND external_id = ?`,
 );
 const insertStmt = db.prepare(`
   INSERT INTO library_items (
     owner_id, source_type, external_id, external_url, source_revision, language, concept_id, title,
-    snapshot_html, snapshot_json, license_name, license_url, attribution_text, imported_by
+    snapshot_html, snapshot_json, local_file_id, license_name, license_url, attribution_text, imported_by
   ) VALUES (
     @ownerId, @sourceType, @externalId, @externalUrl, @sourceRevision, @language, @conceptId, @title,
-    @snapshotHtml, @snapshotJson, @licenseName, @licenseUrl, @attributionText, @importedBy
+    @snapshotHtml, @snapshotJson, @localFileId, @licenseName, @licenseUrl, @attributionText, @importedBy
   )
 `);
 const setConceptStmt = db.prepare('UPDATE library_items SET concept_id = ? WHERE id = ?');
 const findByConceptStmt = db.prepare(
-  `SELECT ${SUMMARY_COLUMNS} FROM library_items
-   WHERE owner_id = ? AND concept_id = ? AND language = ?`,
+  `SELECT ${SUMMARY_COLUMNS} ${FROM_WITH_FILE}
+   WHERE library_items.owner_id = ? AND concept_id = ? AND language = ?`,
 );
 
 export const libraryRepository = {
@@ -136,6 +150,7 @@ export const libraryRepository = {
     title: string;
     snapshotHtml: string | null;
     snapshotJson: string | null;
+    localFileId: number | null;
     licenseName: string | null;
     licenseUrl: string | null;
     attributionText: string | null;

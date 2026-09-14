@@ -45,6 +45,7 @@ function makeItem(opts: {
     title: opts.title,
     snapshotHtml: '<p>snapshot</p>',
     snapshotJson: null,
+    localFileId: null,
     licenseName: 'CC BY-SA 4.0',
     licenseUrl: 'https://example.test/licence',
     attributionText: 'Wikipedia contributors',

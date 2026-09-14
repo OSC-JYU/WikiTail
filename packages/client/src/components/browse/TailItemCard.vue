@@ -3,6 +3,7 @@ import { ref } from 'vue';
 import type { TailEntryView } from '@wikitail/shared';
 import { publicApi } from '../../api/public';
 import LicenseBadge from '../common/LicenseBadge.vue';
+import MediaPreview from '../common/MediaPreview.vue';
 
 const props = defineProps<{ entry: TailEntryView }>();
 
@@ -28,6 +29,8 @@ async function toggle() {
     <!-- The author's own words come first; the imported material supports them. -->
     <p v-if="entry.commentary" class="commentary">{{ entry.commentary }}</p>
 
+    <MediaPreview v-if="entry.item.mediaUrl" :item="entry.item" class="card-media" />
+
     <div class="source">
       <strong>{{ entry.item.title }}</strong>
       <span v-if="entry.item.language" class="lang">{{ entry.item.language }}</span>
@@ -37,7 +40,7 @@ async function toggle() {
     </div>
 
     <div class="actions">
-      <button @click="toggle">
+      <button v-if="!entry.item.mediaUrl" @click="toggle">
         {{ open ? $t('browse.hideSnapshot') : $t('browse.showSnapshot') }}
       </button>
     </div>
@@ -56,6 +59,9 @@ async function toggle() {
   border-radius: 8px;
   padding: 1rem;
   margin-bottom: 1rem;
+}
+.card-media {
+  margin-bottom: 0.6rem;
 }
 .commentary {
   font-size: 1.05rem;

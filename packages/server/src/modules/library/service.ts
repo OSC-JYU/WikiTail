@@ -10,6 +10,8 @@ import type {
 import { forbidden, notFound } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { articlesRepository } from '../articles/repository.js';
+import { filesRepository } from '../files/repository.js';
+import { kindFor, writeMedia } from '../files/storage.js';
 import { projectsRepository } from '../projects/repository.js';
 import { getAdapter } from '../sources/registry.js';
 import { libraryRepository } from './repository.js';
@@ -98,7 +100,24 @@ export async function importToLibrary(
 }
 
 function persist(actor: User, snapshot: SourceSnapshot): LibraryItemSummary {
+  // Media is stored on disk and referenced, rather than held in SQLite: binaries
+  // are file-shaped, and hapi serves them straight from /uploads.
+  let localFileId: number | null = null;
+  if (snapshot.mediaFile) {
+    const { buffer, mimeType, filename } = snapshot.mediaFile;
+    const { diskPath } = writeMedia(buffer, mimeType);
+    localFileId = filesRepository.create({
+      ownerId: actor.id,
+      diskPath,
+      originalFilename: filename,
+      mimeType,
+      byteSize: buffer.byteLength,
+      kind: kindFor(mimeType),
+    }).id;
+  }
+
   return libraryRepository.create({
+    localFileId,
     ownerId: actor.id,
     sourceType: snapshot.sourceType,
     externalId: snapshot.externalId,

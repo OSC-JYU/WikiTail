@@ -39,4 +39,11 @@ export const config = {
     'WIKIPEDIA_USER_AGENT',
     'Wikitail/0.1 (local dev; contact: admin@wikitail.local)',
   ),
+  /**
+   * Commons originals run to many megabytes (8MB for a single photo). A snapshot
+   * only has to look right on a page, so a scaled rendering is imported and the
+   * original stays one click away at the source.
+   */
+  commonsImageWidth: Number(env('COMMONS_IMAGE_WIDTH', '1600')),
+  maxImportBytes: Number(env('MAX_IMPORT_BYTES', String(25 * 1024 * 1024))),
 };

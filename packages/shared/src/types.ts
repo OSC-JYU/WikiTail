@@ -54,6 +54,8 @@ export interface ArticleVersion {
 
 export type SourceType = 'wikipedia' | 'wikidata' | 'commons' | 'finna' | 'local_upload';
 
+export type LocalFileKind = 'image' | 'audio' | 'video' | 'other';
+
 export interface LibraryItem {
   id: number;
   ownerId: number;
@@ -69,6 +71,9 @@ export interface LibraryItem {
   snapshotHtml: string | null;
   snapshotJson: unknown | null;
   localFileId: number | null;
+  /** Path to the stored media, when this item has a local file. */
+  mediaUrl: string | null;
+  mediaKind: LocalFileKind | null;
   licenseName: string | null;
   licenseUrl: string | null;
   attributionText: string | null;
@@ -85,8 +90,6 @@ export interface ImportResult {
   /** Sibling language versions pulled in alongside the requested one. */
   siblings: LibraryItemSummary[];
 }
-
-export type LocalFileKind = 'image' | 'audio' | 'video' | 'other';
 
 export interface LocalFile {
   id: number;

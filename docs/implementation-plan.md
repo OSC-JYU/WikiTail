@@ -1,6 +1,7 @@
 # Wikitail — Implementation Plan
 
-Status: **M0-M4 complete.** M5 (Commons adapter and polish) is next.
+Status: **M0-M4 complete; M5 in progress** — the Commons adapter is done, admin role
+management and local uploads remain.
 
 Wikitail is a self-hosted, multi-user app for writing local articles (markdown) enriched with
 content imported from external "wiki world" sources — Wikipedia first, then Wikimedia Commons,
@@ -376,11 +377,28 @@ Implementation notes:
 - Language codes are shown through `Intl.DisplayNames`, so a Finnish reader sees "englanti" rather
   than "en".
 
-### M5 — Polish and second adapter ⬅ next
+### M5 — Polish and second adapter ⬅ in progress
 
 Commons adapter (chosen over Wikidata as the second *content* source — it exercises the binary media
-path via `local_files`, validating the interface for media and not just text) + `CommonsTab.vue`;
-admin role management; upload size limits; loading/error states.
+path via `local_files`, validating the interface for media and not just text) + `CommonsTab.vue`
+✅ done. Still to do: admin role management, the Local tab for uploading your own files, and
+loading/error-state polish.
+
+Commons implementation notes:
+
+- **A scaled rendering is imported, not the original.** Commons originals run to 4–8MB for a single
+  photo, and a page never needs that; `COMMONS_IMAGE_WIDTH` (1600 by default) picks the rendering and
+  the original stays linked as the source. `MAX_IMPORT_BYTES` caps it either way, checked against the
+  declared Content-Length before transferring and against the received bytes afterwards.
+- **Licences are per file, not per wiki.** Unlike Wikipedia, where one licence covers the site,
+  Commons files carry their own (CC BY-SA 4.0, CC0, CC BY-SA 3.0 all appeared in the first three
+  results), so licence, author and description come from each file's `extmetadata`.
+- That metadata is **HTML** — the artist field is usually a link — so it is sanitized to text before
+  going into an attribution line.
+- Commons files are **language-neutral**: `language` is null and there are no sibling versions, which
+  the schema and tail resolution already allowed for.
+- Media is written to `uploads/<2 chars>/<uuid>.<ext>` and served by the existing `/uploads` route;
+  the name is random because an uploader-supplied one could collide or escape the directory.
 
 ## Package choices
 
@@ -414,9 +432,9 @@ admin role management; upload size limits; loading/error states.
   plus scripted browser runs. Worth addressing before the codebase grows much further — the language
   work in M2 adds fallback and resolution logic that is exactly the kind of thing tests should pin
   down.
-- **Imported images are hotlinked**, not stored. Snapshot *text* is local, but `<img>` still points at
-  `thumb.wikimedia.org`, so an imported article is not fully offline-independent. Media downloading
-  is the Commons work in M4.
+- **Images inside Wikipedia snapshots are still hotlinked.** Commons files imported through the
+  Commons tab are stored locally, but an imported Wikipedia *article* keeps its `<img>` tags pointing
+  at `thumb.wikimedia.org`, so such an article is not fully offline-independent.
 - **No Tailwind.** The plan called for it; the UI currently uses plain scoped CSS per component.
   Revisit when the mobile-first browse view (M3) makes a utility system worth its weight.
 - **Snapshot refresh is unbuilt by design.** `source_revision` and `external_url` are stored so

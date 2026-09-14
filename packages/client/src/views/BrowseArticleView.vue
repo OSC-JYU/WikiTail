@@ -8,6 +8,7 @@ import { languageName } from '../lib/languageName';
 import { useAuthStore } from '../stores/auth';
 import LanguageSwitcher from '../components/common/LanguageSwitcher.vue';
 import TailItemCard from '../components/browse/TailItemCard.vue';
+import MediaPreview from '../components/common/MediaPreview.vue';
 
 const props = defineProps<{ project: string; language: string; article: string }>();
 const { locale } = useI18n();
@@ -90,6 +91,7 @@ const projectUsesLocale = computed(() => data.value?.project.languages.includes(
         <!-- Author markdown rendered with html:false — no raw HTML passes through. -->
         <div v-if="segment.kind === 'html'" class="prose" v-html="segment.html" />
         <figure v-else-if="embedFor(segment.id)" class="embed">
+          <MediaPreview v-if="embedFor(segment.id)!.mediaUrl" :item="embedFor(segment.id)!" />
           <strong>{{ embedFor(segment.id)!.title }}</strong>
           <span v-if="embedFor(segment.id)!.language" class="lang">
             {{ embedFor(segment.id)!.language }}

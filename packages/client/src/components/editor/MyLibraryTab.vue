@@ -4,6 +4,7 @@ import type { LibraryItem } from '@wikitail/shared';
 import { libraryApi } from '../../api/library';
 import { useLibraryStore } from '../../stores/library';
 import LicenseBadge from '../common/LicenseBadge.vue';
+import MediaPreview from '../common/MediaPreview.vue';
 
 const emit = defineEmits<{ insert: [libraryItemId: number] }>();
 
@@ -51,6 +52,7 @@ async function preview(id: number) {
 
       <div v-if="selected?.id === item.id" class="preview">
         <LicenseBadge :item="item" />
+        <MediaPreview v-if="item.mediaUrl" :item="item" />
         <!-- Sanitized server-side on import; see sources/wikipedia/sanitize.ts -->
         <div v-if="selected.snapshotHtml" class="snapshot" v-html="selected.snapshotHtml" />
       </div>

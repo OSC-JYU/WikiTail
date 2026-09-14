@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { splitArticleBody } from '@wikitail/shared';
 import { useLibraryStore } from '../../stores/library';
 import { renderMarkdown } from '../../lib/markdown';
+import MediaPreview from '../common/MediaPreview.vue';
 
 const props = defineProps<{ body: string }>();
 const library = useLibraryStore();
@@ -26,6 +27,7 @@ const segments = computed(() =>
       <!-- Rendered from author markdown with html:false, so no raw HTML passes through. -->
       <div v-if="segment.kind === 'html'" class="prose" v-html="segment.html" />
       <div v-else-if="segment.item" class="embed">
+        <MediaPreview v-if="segment.item.mediaUrl" :item="segment.item" />
         <strong>{{ segment.item.title }}</strong>
         <span v-if="segment.item.language" class="lang">{{ segment.item.language }}</span>
         <a
@@ -61,6 +63,7 @@ const segments = computed(() =>
 }
 .embed {
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   align-items: baseline;
   border-left: 3px solid var(--border);

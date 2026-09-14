@@ -1,6 +1,6 @@
 # Wikitail — Implementation Plan
 
-Status: **M0 and M1 complete.** M2 is next.
+Status: **M0 and M1 complete.** M2 (language foundations) is next.
 
 Wikitail is a self-hosted, multi-user app for writing local articles (markdown) enriched with
 content imported from external "wiki world" sources — Wikipedia first, then Wikimedia Commons,
@@ -32,6 +32,11 @@ See [`idea.md`](../idea.md) for the original concept.
 - **Licensing**: every imported snapshot stores license name/URL + attribution text, displayed
   wherever the content appears.
 - **External links** behave like normal browser links — `target="_blank" rel="noopener noreferrer"`.
+- **Multilingual**: every article carries a language, and the same article can exist as linked
+  language versions. Search and import are language-aware, and imported wiki content is linked across
+  languages via Wikidata. Language codes are free-form ISO codes — no fixed set, no DB enum. The UI is
+  translatable, and the chosen UI language also selects which language version of the content you see.
+  See [Multilingual design](#multilingual-design).
 
 ## Repo layout — npm workspaces, TypeScript
 
@@ -112,15 +117,22 @@ storage do not change.
 users(id PK, email UNIQUE NOT NULL, display_name, role CHECK IN ('admin','author'), created_at)
 
 projects(id PK, slug UNIQUE, title, description, main_article_id NULL REFERENCES articles(id),
+         default_language TEXT NOT NULL,           -- fallback when content is missing a language
          created_by REFERENCES users(id), created_at)
 
 articles(id PK, project_id NOT NULL REFERENCES projects(id), slug, title,
+         language TEXT NOT NULL,                   -- free-form ISO code, no CHECK constraint
+         translation_group_id INTEGER NOT NULL,    -- shared by all language versions of one article
          body_markdown TEXT NOT NULL DEFAULT '', status CHECK IN ('draft','published') DEFAULT 'draft',
-         created_by REFERENCES users(id), created_at, updated_at, UNIQUE(project_id, slug))
+         created_by REFERENCES users(id), created_at, updated_at,
+         UNIQUE(project_id, language, slug),       -- slugs differ per language; collisions allowed across languages
+         UNIQUE(translation_group_id, language))   -- at most one version per language
 
 library_items(id PK, owner_id NOT NULL REFERENCES users(id),
               source_type CHECK IN ('wikipedia','wikidata','commons','finna','local_upload'),
               external_id, external_url, source_revision,
+              language TEXT,                       -- NULL for language-neutral items (e.g. a Commons image)
+              concept_id TEXT,                     -- e.g. 'wikidata:Q185187'; links language versions
               title NOT NULL, snapshot_html TEXT, snapshot_json TEXT,
               local_file_id NULL REFERENCES local_files(id),
               license_name, license_url, attribution_text,
@@ -134,16 +146,92 @@ tail_entries(id PK, article_id NOT NULL REFERENCES articles(id),
              commentary TEXT, position INTEGER NOT NULL, created_at)
 ```
 
-Indices: `articles(project_id)`, `articles(status)`, `library_items(owner_id)`,
-`library_items(source_type, external_id)`, `tail_entries(article_id, position)`.
+Indices: `articles(project_id)`, `articles(status)`, `articles(translation_group_id)`,
+`library_items(owner_id)`, `library_items(source_type, external_id)`,
+`library_items(concept_id, language)`, `tail_entries(article_id, position)`.
 
 - `main_article_id` circularity: create project (NULL) → create its article → `UPDATE projects`.
+- `translation_group_id` is set to the article's own `id` for the first version, and shared by every
+  translation added afterwards — same insert-then-update dance as `main_article_id`, which avoids a
+  separate groups table. The trade-off: deleting the first version does not break the group (the id is
+  just a number), but the group has no row of its own to hang metadata on. Revisit only if group-level
+  metadata turns out to be needed.
 - Article bodies reference library content via a `[[library:N]]` shortcode resolved by a `markdown-it`
   plugin at render time; markdown stays the single source of truth.
 - Duplicate library items within one article's Tail are allowed (independent rows, own commentary).
 - Tail ordering is manual (`position` integer), reorderable by drag-and-drop.
 - Snapshot HTML/JSON live in SQLite `TEXT`; binary media goes to disk under `uploads/`.
 - Wikipedia `external_id` is namespaced `{lang}:{title}` for future multi-language support.
+
+## Multilingual design
+
+Every article has a language, the same article can exist in several languages, and imported wiki
+content is matched across languages so a Finnish article's Tail shows Finnish Wikipedia pages.
+
+### Articles and translation groups
+
+An article's language is its own attribute; language versions of one article share a
+`translation_group_id`. Scope is **articles only** — a project has a single `default_language` and one
+title/description, which keeps the model simple and avoids per-language project rows.
+
+Slugs are per-language, so the Finnish version can live at a Finnish URL
+(`/projects/paikallishistoria/artikkelit/vanha-vesimylly`) rather than reusing the English slug.
+Uniqueness is therefore `(project_id, language, slug)`.
+
+### Language-aware search and import
+
+`WIKIPEDIA_LANG` becomes a *default*, not the only value. The adapter contract gains a language:
+
+```ts
+search(query: string, opts?: { limit?: number; language?: string }): Promise<SourceSearchResult[]>
+```
+
+Searching from a Finnish article searches `fi.wikipedia.org`. External ids are already namespaced
+`{lang}:{title}` (`fi:Vesimylly`, `en:Watermill`), so no id format change is needed.
+
+### Linking language versions via Wikidata
+
+Wikipedia already solves "same concept, different languages" with Wikidata Q-ids, and a single
+request returns both the Q-id and every interlanguage link:
+
+```
+/w/api.php?action=query&titles=Watermill&prop=pageprops|langlinks&ppprop=wikibase_item&lllimit=max
+```
+
+For `Watermill` this yields `Q185187` plus 67 language links (`fi: Vesimylly`, `sv: Vattenkvarn`, …),
+and the Finnish page resolves back to the same Q-id — verified, so the mapping is bidirectional.
+
+On import, therefore:
+
+1. Fetch the page's Q-id and langlinks alongside the HTML.
+2. Store `concept_id = 'wikidata:Q185187'` and `language` on the library item.
+3. Auto-import the sibling page for each other language the article exists in, sharing the
+   `concept_id`.
+
+At render time a Tail entry resolves to the sibling matching the article's language, falling back to
+the imported item when no sibling exists. This means `tail_entries` needs no schema change — the
+resolution is a lookup on `(concept_id, language)`.
+
+Not every page has a Q-id or a sibling in the wanted language; both cases fall back to showing what
+was actually imported, so a missing translation degrades rather than breaks.
+
+### UI language
+
+`vue-i18n` with locale files, a switcher in the header, and `<html lang>` set from the active locale.
+The UI language also selects content: viewing in Finnish shows Finnish article versions where they
+exist and falls back to the project's `default_language` otherwise. Language codes stay free-form —
+a configurable supported-languages list drives the switcher, but the database accepts any ISO code
+and adds no `CHECK` constraint.
+
+### Code this touches
+
+- `sources/wikipedia/client.ts` — currently closes over a single `config.wikipediaLang` for both API
+  hosts and `articleUrl()`; language must become a parameter.
+- `sources/wikipedia/sanitize.ts` — **latent bug**: it rewrites relative `./Article` links against a
+  single hardcoded `wikiBase`, so a Finnish import would currently get its links pointed at
+  `en.wikipedia.org`. `sanitizeArticleHtml()` must take the language.
+- `articles` module + migrations — language, translation group, per-language slug uniqueness.
+- `library` module — language/concept columns, sibling auto-import, language-aware resolution.
 
 ## Milestones
 
@@ -174,33 +262,49 @@ Implementation notes:
 - Library listings omit snapshot bodies; only the detail endpoint returns HTML.
 - Re-importing an item already in the library returns the existing row.
 
-### M2 — Editor and Tail curation ⬅ next
+### M2 — Language foundations ⬅ next
+
+Article `language` + `translation_group_id` with per-language slugs; project `default_language`;
+language-aware adapter search; Wikidata Q-id + langlink capture on import with sibling auto-import;
+language passed through the Wikipedia client and sanitizer. UI for creating a translation of an
+existing article and switching between versions. **Deliverable**: the same article exists in Finnish
+and English, and importing a Wikipedia page brings in both language versions, linked by concept.
+
+Sequenced before the editor and browse work deliberately: `articles.language` is schema-level, and
+Tail resolution and the public browse view both need to know an article's language. Retrofitting it
+after those exist means reworking their queries and rendering rather than just adding a migration.
+
+### M3 — Editor and Tail curation
 
 Markdown editor (`markdown-it`, `html: false`) with live preview and the `[[library:N]]` shortcode
-plugin; `TailEditor.vue` with drag-reorder; `tail_entries` CRUD. **Deliverable**: full authoring loop
-— article references library items, Tail curated with commentary, article publishable.
+plugin; `TailEditor.vue` with drag-reorder; `tail_entries` CRUD, resolving each entry to the library
+item matching the article's language. **Deliverable**: full authoring loop — article references
+library items, Tail curated with commentary, article publishable.
 
-### M3 — Public browse view (mobile-first)
+### M4 — Public browse view (mobile-first) + UI translation
 
 `public` routes (`auth: false`, published only); `BrowseArticleView` + `ArticleFeed`/`TailItemCard`;
-mobile-first layout. **Deliverable**: an anonymous visitor browses home → project → article + Tail on
-a phone viewport, with external links opening in a new tab.
+mobile-first layout. `vue-i18n` with locale files and a language switcher, with the chosen locale
+selecting content language and falling back to the project default. **Deliverable**: an anonymous
+visitor browses home → project → article + Tail on a phone viewport in either language, with external
+links opening in a new tab.
 
-### M4 — Polish and second adapter
+### M5 — Polish and second adapter
 
-Commons adapter (chosen over Wikidata first — it exercises the binary media path via `local_files`,
-validating the interface for media and not just text) + `CommonsTab.vue`; admin role management;
-upload size limits; loading/error states.
+Commons adapter (chosen over Wikidata as the second *content* source — it exercises the binary media
+path via `local_files`, validating the interface for media and not just text) + `CommonsTab.vue`;
+admin role management; upload size limits; loading/error states.
 
 ## Package choices
 
 - **hapi**: `@hapi/hapi`, `@hapi/inert`, `@hapi/boom`, `joi` for route validation.
 - **HTML sanitization**: `sanitize-html` (server-side allowlist; no DOM post-processing needed).
 - **SQLite**: `better-sqlite3` (synchronous, prepared statements, no ORM).
-- **Markdown**: `markdown-it` with `html: false`, plus a `[[library:N]]` shortcode plugin (M2).
+- **Markdown**: `markdown-it` with `html: false`, plus a `[[library:N]]` shortcode plugin (M3).
 - **Uploads**: hapi's built-in multipart streaming to disk under `uploads/` with a
   `crypto.randomUUID()` filename. Default limits: images 20MB, audio 100MB, video 500MB.
-- **Client**: plain `fetch` wrappers; `vue-draggable-plus` for Tail drag-reorder (M2).
+- **Client**: plain `fetch` wrappers; `vue-draggable-plus` for Tail drag-reorder (M3); `vue-i18n` for
+  UI translation (M4).
 - **Dev tooling**: `tsx`, `concurrently`, `eslint` + `@typescript-eslint`, `prettier`.
 - **Wikipedia requests**: must send a descriptive `User-Agent` (Wikimedia policy) — see
   `WIKIPEDIA_USER_AGENT` in `.env.example`.
@@ -219,8 +323,13 @@ upload size limits; loading/error states.
 
 ## Known gaps
 
+- **Nothing is language-aware yet.** M0/M1 assume a single language throughout: articles have no
+  language column and `WIKIPEDIA_LANG` is a single global. The sanitizer's hardcoded wiki host is an
+  outright bug for any non-default language (see [Multilingual design](#code-this-touches)).
 - **No test suite yet.** `vitest` is planned but not installed; verification so far has been manual
-  plus scripted browser runs. Worth addressing before the codebase grows much further.
+  plus scripted browser runs. Worth addressing before the codebase grows much further — the language
+  work in M2 adds fallback and resolution logic that is exactly the kind of thing tests should pin
+  down.
 - **Imported images are hotlinked**, not stored. Snapshot *text* is local, but `<img>` still points at
   `thumb.wikimedia.org`, so an imported article is not fully offline-independent. Media downloading
   is the Commons work in M4.
@@ -234,8 +343,18 @@ upload size limits; loading/error states.
 ## Open questions
 
 - Exact upload size limits — current defaults are placeholders.
-- Multi-language Wikipedia in the UI (the data model already supports it via `{lang}:{title}`).
 - Whether a derived `article_library_links` table is needed for "where is item X used" queries.
+- **Translation fallback when a version is missing**: show the project's `default_language` version,
+  or show nothing with a "not available in this language" notice? Wikipedia does the latter; a small
+  local site probably wants the former.
+- **How far to auto-import siblings.** Importing every language version of a page is wasteful when a
+  project only uses two; importing only the project's languages is proposed, but a page added before a
+  new language is introduced would then need backfilling.
+- **Translating an existing article**: start the new version blank, or pre-fill with the source
+  language's markdown as a starting point for the translator?
+- **Does the browse feed mix languages?** A project's index in Finnish presumably lists Finnish
+  versions only — but articles with no Finnish version need a rule (hide, or show in fallback
+  language).
 
 ## Verification
 
@@ -243,9 +362,15 @@ upload size limits; loading/error states.
   article persists to SQLite.
 - **M1**: search Wikipedia in the Wiki world tab, import a result, confirm it appears in My Library
   with correct license/attribution and a sanitized preview that renders without console errors.
-- **M2**: write an article referencing a library item, add items to the Tail with commentary,
-  drag-reorder, publish.
-- **M3**: load the public browse URL in a mobile viewport with no `mail` header — drafts hidden,
-  published article + Tail render, external links open in a new tab.
-- **M4**: import a Commons image; confirm the binary lands under `uploads/` with a `local_files` row
+- **M2**: create a Finnish translation of an English article and confirm both share a
+  `translation_group_id`; search from the Finnish version and confirm it queries `fi.wikipedia.org`;
+  import `en:Watermill` and confirm `fi:Vesimylly` is imported alongside it sharing
+  `concept_id = wikidata:Q185187`; confirm the Finnish snapshot's links point at `fi.wikipedia.org`,
+  not `en`.
+- **M3**: write an article referencing a library item, add items to the Tail with commentary,
+  drag-reorder, publish; confirm the Finnish article's Tail renders the Finnish snapshot.
+- **M4**: load the public browse URL in a mobile viewport with no `mail` header — drafts hidden,
+  published article + Tail render, external links open in a new tab; switch UI language and confirm
+  both the chrome and the article version change, with fallback where a translation is missing.
+- **M5**: import a Commons image; confirm the binary lands under `uploads/` with a `local_files` row
   and displays in both editor and browse view.

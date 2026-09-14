@@ -8,6 +8,7 @@ import {
 } from '@wikitail/shared';
 import { publicApi } from '../api/public';
 import { renderMarkdown } from '../lib/markdown';
+import { framableWikiUrl, wikiPageTitle } from '../lib/wikiLinks';
 import { languageName } from '../lib/languageName';
 import { useAuthStore } from '../stores/auth';
 import LanguageSwitcher from '../components/common/LanguageSwitcher.vue';
@@ -22,6 +23,28 @@ const auth = useAuthStore();
 const data = ref<BrowseArticle | null>(null);
 const notFound = ref(false);
 const viewing = ref<LibraryItemSummary | null>(null);
+const viewingPage = ref<{ title: string; url: string } | null>(null);
+
+/**
+ * A Wikipedia link in the article text opens in place rather than in a new tab:
+ * on a phone especially, a new tab loses the reader's position in the feed and
+ * getting back is fiddly. Only links we can actually frame are intercepted —
+ * anything else follows its normal behaviour.
+ */
+function onBodyClick(event: MouseEvent) {
+  // Leave modified clicks alone: the reader has asked for a tab or a window.
+  if (event.metaKey || event.ctrlKey || event.shiftKey || event.button !== 0) return;
+
+  const link = (event.target as HTMLElement).closest('a');
+  const href = link?.getAttribute('href');
+  if (!href) return;
+
+  const framable = framableWikiUrl(href);
+  if (!framable) return;
+
+  event.preventDefault();
+  viewingPage.value = { title: wikiPageTitle(href), url: framable };
+}
 
 async function load() {
   notFound.value = false;
@@ -102,7 +125,7 @@ const projectUsesLocale = computed(() => data.value?.project.languages.includes(
       </RouterLink>
     </aside>
 
-    <article class="body">
+    <article class="body" @click="onBodyClick">
       <template v-for="(segment, index) in segments" :key="index">
         <!-- Author markdown rendered with html:false — no raw HTML passes through. -->
         <div v-if="segment.kind === 'html'" class="prose" v-html="segment.html" />
@@ -158,6 +181,7 @@ const projectUsesLocale = computed(() => data.value?.project.languages.includes(
     </section>
 
     <ItemDialog :item="viewing" source="public" @close="viewing = null" />
+    <ItemDialog :page="viewingPage" @close="viewingPage = null" />
   </div>
 </template>
 

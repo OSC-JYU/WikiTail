@@ -45,7 +45,10 @@ See [`idea.md`](../idea.md) for the original concept.
   Commons asks (title, author, source, licence). Imported work keeps the licence and credit of its
   source — those are not ours to restate — while uploads carry a licence the uploader chooses,
   defaulting to CC BY. Authors may add their own caption to any item, including imported ones.
-- **External links** behave like normal browser links — `target="_blank" rel="noopener noreferrer"`.
+- **External links** open in a new tab so a reader does not lose their place. The exception is
+  Wikimedia links, which open in a dialog over the article: they are the only ones that can actually
+  be framed, and on a phone especially a new tab loses the reader's position in the feed. Modified
+  clicks (ctrl, cmd, middle) are left alone — the reader has asked for a tab.
 - **Multilingual**: each **project declares its set of languages**; articles may only be written in
   those, and imports fetch exactly those language versions. The same article can exist as linked
   language versions, matched across wikis by Wikidata concept id. Providing every language is the

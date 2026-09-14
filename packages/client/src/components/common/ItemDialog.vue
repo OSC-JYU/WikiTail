@@ -14,7 +14,9 @@ import MediaPreview from './MediaPreview.vue';
  * browser rather than being reimplemented.
  */
 const props = defineProps<{
-  item: LibraryItemSummary | null;
+  item?: LibraryItemSummary | null;
+  /** An outbound page opened in place of following the link. */
+  page?: { title: string; url: string } | null;
   /** Which endpoint may serve the stored body — public pages have no session. */
   source?: 'public' | 'library';
 }>();
@@ -25,27 +27,32 @@ const emit = defineEmits<{ close: [] }>();
  * the project's setting at import time, so this follows the item rather than
  * assuming anything about where it came from.
  */
-const livePage = computed(() =>
-  props.item && !props.item.hasSnapshot && !props.item.mediaUrl && props.item.externalUrl
-    ? props.item.externalUrl
-    : null,
-);
+const livePage = computed(() => {
+  if (props.page) return props.page.url;
+  const item = props.item;
+  return item && !item.hasSnapshot && !item.mediaUrl && item.externalUrl ? item.externalUrl : null;
+});
+
+const heading = computed(() => props.page?.title ?? props.item?.title ?? '');
+const sourceUrl = computed(() => props.page?.url ?? props.item?.externalUrl ?? null);
+const open = computed(() => Boolean(props.page ?? props.item));
 
 const dialog = ref<HTMLDialogElement | null>(null);
 const full = ref<LibraryItem | null>(null);
 const loading = ref(false);
 
 watch(
-  () => props.item,
-  async (item) => {
+  () => [props.item, props.page],
+  async () => {
     full.value = null;
-    if (!item) {
+    if (!open.value) {
       dialog.value?.close();
       return;
     }
 
     dialog.value?.showModal();
-    if (livePage.value) return;
+    const item = props.item;
+    if (livePage.value || !item) return;
 
     // Bodies are fetched only when something is actually being read, and only
     // for sources that are not read live.
@@ -71,13 +78,13 @@ function onClick(event: MouseEvent) {
 
 <template>
   <dialog ref="dialog" class="dialog" @close="emit('close')" @click="onClick">
-    <div v-if="item" class="panel">
+    <div v-if="open" class="panel">
       <header>
-        <strong>{{ item.title }}</strong>
+        <strong>{{ heading }}</strong>
         <span class="spacer" />
         <a
-          v-if="item.externalUrl"
-          :href="item.externalUrl"
+          v-if="sourceUrl"
+          :href="sourceUrl"
           target="_blank"
           rel="noopener noreferrer"
           class="source-link"
@@ -88,8 +95,8 @@ function onClick(event: MouseEvent) {
       </header>
 
       <div class="content">
-        <MediaPreview v-if="item.mediaUrl" :item="item" class="media" />
-        <p v-if="item.description" class="description">{{ item.description }}</p>
+        <MediaPreview v-if="item?.mediaUrl" :item="item" class="media" />
+        <p v-if="item?.description" class="description">{{ item.description }}</p>
 
         <!--
           Wikipedia is read live rather than from a stored copy: it renders its own
@@ -99,7 +106,7 @@ function onClick(event: MouseEvent) {
         <iframe
           v-if="livePage"
           :src="livePage"
-          :title="item.title"
+          :title="heading"
           class="live"
           loading="lazy"
           referrerpolicy="no-referrer"
@@ -112,7 +119,7 @@ function onClick(event: MouseEvent) {
         </template>
       </div>
 
-      <LicenseBadge :item="item" />
+      <LicenseBadge v-if="item" :item="item" />
     </div>
   </dialog>
 </template>

@@ -9,6 +9,7 @@ import {
   importToLibrary,
   listLibrary,
   searchSource,
+  updateLibraryItem,
   uploadToLibrary,
 } from './service.js';
 
@@ -77,7 +78,9 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
         const payload = request.payload as {
           file?: UploadPart;
           title?: string;
-          attributionText?: string;
+          description?: string;
+          author?: string;
+          licenceId?: string;
         };
         if (!payload.file?.hapi?.filename) {
           throw Boom.badRequest('No file was uploaded');
@@ -88,8 +91,38 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
           mimeType: payload.file.hapi.headers['content-type']?.split(';')[0] ?? '',
           filename: payload.file.hapi.filename,
           title: payload.title,
-          attributionText: payload.attributionText,
+          description: payload.description,
+          author: payload.author,
+          licenceId: payload.licenceId,
         });
+      },
+    });
+
+    server.route({
+      method: 'PATCH',
+      path: '/api/library/{id}',
+      options: {
+        validate: {
+          payload: Joi.object({
+            description: Joi.string().allow('', null).max(2000).optional(),
+            title: Joi.string().min(1).max(300).optional(),
+            author: Joi.string().allow('').max(300).optional(),
+            licenceId: Joi.string().max(60).optional(),
+          }),
+        },
+      },
+      handler: (request) => {
+        const input = request.payload as {
+          description?: string | null;
+          title?: string;
+          author?: string;
+          licenceId?: string;
+        };
+        return updateLibraryItem(
+          request.auth.credentials as unknown as User,
+          Number(request.params.id),
+          input,
+        );
       },
     });
 

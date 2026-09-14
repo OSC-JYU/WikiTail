@@ -12,6 +12,8 @@ interface LibraryItemRow {
   language: string | null;
   concept_id: string | null;
   title: string;
+  description: string | null;
+  author: string | null;
   local_file_id: number | null;
   disk_path: string | null;
   media_kind: LocalFileKind | null;
@@ -30,7 +32,8 @@ interface FullLibraryItemRow extends LibraryItemRow {
 
 const SUMMARY_COLUMNS = `
   library_items.id, library_items.owner_id AS owner_id, source_type, external_id, external_url, source_revision, language,
-  concept_id, library_items.title, local_file_id, local_files.disk_path AS disk_path,
+  concept_id, library_items.title, library_items.description AS description,
+  library_items.author AS author, local_file_id, local_files.disk_path AS disk_path,
   local_files.kind AS media_kind, license_name, license_url, attribution_text, imported_at,
   imported_by, library_items.created_at AS created_at
 `;
@@ -48,6 +51,8 @@ function toSummary(row: LibraryItemRow): LibraryItemSummary {
     language: row.language,
     conceptId: row.concept_id,
     title: row.title,
+    description: row.description,
+    author: row.author,
     localFileId: row.local_file_id,
     mediaUrl: row.disk_path ? mediaUrl(row.disk_path) : null,
     mediaKind: row.media_kind,
@@ -85,13 +90,21 @@ const findByExternalStmt = db.prepare(
 const insertStmt = db.prepare(`
   INSERT INTO library_items (
     owner_id, source_type, external_id, external_url, source_revision, language, concept_id, title,
-    snapshot_html, snapshot_json, local_file_id, license_name, license_url, attribution_text, imported_by
+    description, author, snapshot_html, snapshot_json, local_file_id, license_name, license_url,
+    attribution_text, imported_by
   ) VALUES (
     @ownerId, @sourceType, @externalId, @externalUrl, @sourceRevision, @language, @conceptId, @title,
-    @snapshotHtml, @snapshotJson, @localFileId, @licenseName, @licenseUrl, @attributionText, @importedBy
+    @description, @author, @snapshotHtml, @snapshotJson, @localFileId, @licenseName, @licenseUrl,
+    @attributionText, @importedBy
   )
 `);
 const setConceptStmt = db.prepare('UPDATE library_items SET concept_id = ? WHERE id = ?');
+const updateDetailsStmt = db.prepare(`
+  UPDATE library_items
+  SET title = @title, description = @description, author = @author,
+      license_name = @licenseName, license_url = @licenseUrl, attribution_text = @attributionText
+  WHERE id = @id
+`);
 const findByConceptStmt = db.prepare(
   `SELECT ${SUMMARY_COLUMNS} ${FROM_WITH_FILE}
    WHERE library_items.owner_id = ? AND concept_id = ? AND language = ?`,
@@ -129,6 +142,21 @@ export const libraryRepository = {
     return toSummary(findSummaryByIdStmt.get(id) as LibraryItemRow);
   },
 
+  updateDetails(
+    id: number,
+    input: {
+      title: string;
+      description: string | null;
+      author: string | null;
+      licenseName: string | null;
+      licenseUrl: string | null;
+      attributionText: string | null;
+    },
+  ): LibraryItemSummary {
+    updateDetailsStmt.run({ id, ...input });
+    return toSummary(findSummaryByIdStmt.get(id) as LibraryItemRow);
+  },
+
   /** The sibling of an imported item in another language, matched by concept. */
   findByConcept(
     ownerId: number,
@@ -148,6 +176,8 @@ export const libraryRepository = {
     language: string | null;
     conceptId: string | null;
     title: string;
+    description: string | null;
+    author: string | null;
     snapshotHtml: string | null;
     snapshotJson: string | null;
     localFileId: number | null;

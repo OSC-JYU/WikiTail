@@ -43,6 +43,8 @@ function makeItem(opts: {
     language: opts.language,
     conceptId: opts.conceptId,
     title: opts.title,
+    description: null,
+    author: null,
     snapshotHtml: '<p>snapshot</p>',
     snapshotJson: null,
     localFileId: null,

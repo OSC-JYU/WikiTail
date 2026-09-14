@@ -93,6 +93,7 @@ export const commonsAdapter: SourceAdapter = {
       html: toRichText(metadata(info, 'ImageDescription')),
       licenseName: license,
       licenseUrl: metadata(info, 'LicenseUrl'),
+      author: artist,
       attributionText: buildAttribution(title, artist, license),
       mediaFile: {
         buffer,

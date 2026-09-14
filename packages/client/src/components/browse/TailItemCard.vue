@@ -30,6 +30,7 @@ async function toggle() {
     <p v-if="entry.commentary" class="commentary">{{ entry.commentary }}</p>
 
     <MediaPreview v-if="entry.item.mediaUrl" :item="entry.item" class="card-media" />
+    <p v-if="entry.item.description" class="caption">{{ entry.item.description }}</p>
 
     <div class="source">
       <strong>{{ entry.item.title }}</strong>
@@ -61,7 +62,12 @@ async function toggle() {
   margin-bottom: 1rem;
 }
 .card-media {
-  margin-bottom: 0.6rem;
+  margin-bottom: 0.4rem;
+}
+.caption {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  margin: 0 0 0.6rem;
 }
 .commentary {
   font-size: 1.05rem;

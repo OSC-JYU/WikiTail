@@ -15,6 +15,11 @@ export const libraryApi = {
   },
   list: () => api.get<LibraryItemSummary[]>('/library'),
   get: (id: number) => api.get<LibraryItem>(`/library/${id}`),
+  update: (
+    id: number,
+    input: { description?: string | null; title?: string; author?: string; licenceId?: string },
+  ) => api.patch<LibraryItemSummary>(`/library/${id}`, input),
+
   import: (sourceType: SourceType, externalId: string, articleId?: number) =>
     api.post<ImportResult>('/library/import', { sourceType, externalId, articleId }),
 
@@ -22,10 +27,14 @@ export const libraryApi = {
    * Uploads go through fetch directly rather than the JSON wrapper: the browser
    * has to set the multipart Content-Type itself so it can include the boundary.
    */
-  async upload(file: File, fields: { title?: string; attributionText?: string } = {}) {
+  async upload(
+    file: File,
+    fields: { title?: string; description?: string; author?: string; licenceId?: string } = {},
+  ) {
     const body = new FormData();
-    if (fields.title) body.set('title', fields.title);
-    if (fields.attributionText) body.set('attributionText', fields.attributionText);
+    for (const [key, value] of Object.entries(fields)) {
+      if (value) body.set(key, value);
+    }
     body.set('file', file);
 
     const res = await fetch('/api/library/upload', { method: 'POST', body });

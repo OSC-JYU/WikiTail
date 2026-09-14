@@ -29,5 +29,12 @@
   },
   "language": {
     "label": "Language"
+  },
+  "credit": {
+    "by": "by {author}",
+    "descriptionLabel": "Description",
+    "descriptionPlaceholder": "Describe this image…",
+    "save": "Save",
+    "licence": "Licence"
   }
 }

@@ -80,6 +80,7 @@ export const wikipediaAdapter: SourceAdapter = {
       html: sanitizeArticleHtml(html, title, language),
       licenseName: rights.text,
       licenseUrl: rights.url,
+      author: 'Wikipedia contributors',
       attributionText: `"${title}" by Wikipedia contributors, licensed under ${rights.text}.`,
     } satisfies SourceSnapshot;
   },

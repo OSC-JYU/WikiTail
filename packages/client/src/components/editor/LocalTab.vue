@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { ref } from 'vue';
+import { DEFAULT_UPLOAD_LICENCE, UPLOAD_LICENCES } from '@wikitail/shared';
 import { libraryApi } from '../../api/library';
 import { useLibraryStore } from '../../stores/library';
 import MediaPreview from '../common/MediaPreview.vue';
@@ -10,7 +11,9 @@ const library = useLibraryStore();
 const fileInput = ref<HTMLInputElement | null>(null);
 const file = ref<File | null>(null);
 const title = ref('');
-const attributionText = ref('');
+const description = ref('');
+const author = ref('');
+const licenceId = ref(DEFAULT_UPLOAD_LICENCE);
 const uploading = ref(false);
 const error = ref<string | null>(null);
 
@@ -31,12 +34,16 @@ async function upload() {
   try {
     const item = await libraryApi.upload(file.value, {
       title: title.value,
-      attributionText: attributionText.value,
+      description: description.value,
+      author: author.value,
+      licenceId: licenceId.value,
     });
     library.items.unshift(item);
     file.value = null;
     title.value = '';
-    attributionText.value = '';
+    description.value = '';
+    author.value = '';
+    licenceId.value = DEFAULT_UPLOAD_LICENCE;
     if (fileInput.value) fileInput.value.value = '';
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Upload failed';
@@ -52,7 +59,16 @@ const uploaded = () => library.items.filter((item) => item.sourceType === 'local
   <form class="upload" @submit.prevent="upload">
     <input ref="fileInput" type="file" :accept="ACCEPT" @change="pick" />
     <input v-model="title" placeholder="Title" />
-    <input v-model="attributionText" placeholder="Credit (optional) — e.g. Photo: Matti Meikäläinen" />
+    <textarea v-model="description" rows="2" :placeholder="$t('credit.descriptionPlaceholder')" />
+    <input v-model="author" placeholder="Photographer / creator (defaults to you)" />
+    <label class="licence">
+      {{ $t('credit.licence') }}
+      <select v-model="licenceId">
+        <option v-for="licence in UPLOAD_LICENCES" :key="licence.id" :value="licence.id">
+          {{ licence.name }}
+        </option>
+      </select>
+    </label>
     <button type="submit" :disabled="!file || uploading">
       {{ uploading ? 'Uploading…' : 'Upload' }}
     </button>
@@ -66,7 +82,11 @@ const uploaded = () => library.items.filter((item) => item.sourceType === 'local
       <MediaPreview :item="item" class="thumb" />
       <div>
         <strong>{{ item.title }}</strong>
-        <p v-if="item.attributionText" class="credit">{{ item.attributionText }}</p>
+        <p v-if="item.description" class="credit">{{ item.description }}</p>
+        <p class="credit">
+          {{ item.author ? $t('credit.by', { author: item.author }) : '' }}
+          <span v-if="item.licenseName">· {{ item.licenseName }}</span>
+        </p>
       </div>
     </li>
   </ul>
@@ -83,6 +103,17 @@ const uploaded = () => library.items.filter((item) => item.sourceType === 'local
 .upload input[type='text'],
 .upload input:not([type='file']) {
   padding: 0.45rem;
+}
+.upload textarea {
+  padding: 0.45rem;
+  font: inherit;
+}
+.licence {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  font-size: 0.85rem;
+  color: var(--text-muted);
 }
 .upload button {
   align-self: flex-start;

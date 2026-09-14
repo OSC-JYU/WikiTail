@@ -9,6 +9,7 @@ import type {
   SourceType,
   User,
 } from '@wikitail/shared';
+import { DEFAULT_UPLOAD_LICENCE, findLicence } from '@wikitail/shared';
 import { forbidden, notFound } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { articlesRepository } from '../articles/repository.js';
@@ -118,13 +119,20 @@ export async function uploadToLibrary(
     mimeType: string;
     filename: string;
     title?: string;
-    attributionText?: string;
+    description?: string;
+    author?: string;
+    licenceId?: string;
   },
 ): Promise<LibraryItemSummary> {
   if (!isUploadable(input.mimeType)) {
     throw Boom.unsupportedMediaType(
       `${input.mimeType} cannot be uploaded. Allowed: ${uploadableTypes().join(', ')}`,
     );
+  }
+
+  const licence = findLicence(input.licenceId ?? DEFAULT_UPLOAD_LICENCE);
+  if (!licence) {
+    throw Boom.badRequest(`Unknown licence: ${input.licenceId}`);
   }
 
   const { diskPath, byteSize } = await writeMediaStream(input.stream, input.mimeType);
@@ -146,13 +154,47 @@ export async function uploadToLibrary(
     language: null,
     conceptId: null,
     title: input.title?.trim() || input.filename,
+    description: input.description?.trim() || null,
+    author: input.author?.trim() || actor.displayName || actor.email,
     snapshotHtml: null,
     snapshotJson: null,
     localFileId: file.id,
-    licenseName: null,
-    licenseUrl: null,
-    attributionText: input.attributionText?.trim() || null,
+    licenseName: licence.name,
+    licenseUrl: licence.url,
+    attributionText: null,
     importedBy: actor.id,
+  });
+}
+
+/**
+ * Lets the owner add their own caption. Title, author and licence are editable
+ * only for their own uploads: the licence and credit of imported work belong to
+ * whoever made it, and are not ours to restate.
+ */
+export function updateLibraryItem(
+  actor: User,
+  id: number,
+  input: { description?: string | null; title?: string; author?: string; licenceId?: string },
+): LibraryItemSummary {
+  const item = getLibraryItem(actor, id);
+  const ownUpload = item.sourceType === 'local_upload';
+
+  if (!ownUpload && (input.title || input.author || input.licenceId)) {
+    throw Boom.badRequest('Imported items keep the title, credit and licence of their source');
+  }
+
+  const licence = input.licenceId ? findLicence(input.licenceId) : undefined;
+  if (input.licenceId && !licence) {
+    throw Boom.badRequest(`Unknown licence: ${input.licenceId}`);
+  }
+
+  return libraryRepository.updateDetails(id, {
+    title: input.title?.trim() || item.title,
+    description: input.description?.trim() || null,
+    author: ownUpload ? input.author?.trim() || item.author : item.author,
+    licenseName: licence ? licence.name : item.licenseName,
+    licenseUrl: licence ? licence.url : item.licenseUrl,
+    attributionText: item.attributionText,
   });
 }
 
@@ -183,6 +225,8 @@ function persist(actor: User, snapshot: SourceSnapshot): LibraryItemSummary {
     language: snapshot.language ?? null,
     conceptId: snapshot.conceptId ?? null,
     title: snapshot.title,
+    description: null,
+    author: snapshot.author ?? null,
     snapshotHtml: snapshot.html ?? null,
     snapshotJson: snapshot.json ? JSON.stringify(snapshot.json) : null,
     licenseName: snapshot.licenseName ?? null,

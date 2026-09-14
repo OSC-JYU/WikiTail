@@ -30,8 +30,10 @@ See [`idea.md`](../idea.md) for the original concept.
   admin approval). Only published articles appear in public browse.
 - **Tail is not comments**: only the article's author curates Tail entries (library item + optional
   commentary); no visitor-facing interaction.
-- **Licensing**: every imported snapshot stores license name/URL + attribution text, displayed
-  wherever the content appears.
+- **Licensing**: every item stores licence, author and source so it can be credited the way Creative
+  Commons asks (title, author, source, licence). Imported work keeps the licence and credit of its
+  source — those are not ours to restate — while uploads carry a licence the uploader chooses,
+  defaulting to CC BY. Authors may add their own caption to any item, including imported ones.
 - **External links** behave like normal browser links — `target="_blank" rel="noopener noreferrer"`.
 - **Multilingual**: each **project declares its set of languages**; articles may only be written in
   those, and imports fetch exactly those language versions. The same article can exist as linked
@@ -138,6 +140,8 @@ articles(id PK, project_id NOT NULL REFERENCES projects(id), slug, title,
          UNIQUE(translation_group_id, language))   -- at most one version per language
 
 library_items(id PK, owner_id NOT NULL REFERENCES users(id),
+              description,                         -- the author's own caption
+              author,                              -- creator of the work, for citation
               source_type CHECK IN ('wikipedia','wikidata','commons','finna','local_upload'),
               external_id, external_url, source_revision,
               language TEXT,                       -- NULL for language-neutral items (e.g. a Commons image)

@@ -92,6 +92,9 @@ const projectUsesLocale = computed(() => data.value?.project.languages.includes(
         <div v-if="segment.kind === 'html'" class="prose" v-html="segment.html" />
         <figure v-else-if="embedFor(segment.id)" class="embed">
           <MediaPreview v-if="embedFor(segment.id)!.mediaUrl" :item="embedFor(segment.id)!" />
+          <figcaption v-if="embedFor(segment.id)!.description" class="caption">
+            {{ embedFor(segment.id)!.description }}
+          </figcaption>
           <strong>{{ embedFor(segment.id)!.title }}</strong>
           <span v-if="embedFor(segment.id)!.language" class="lang">
             {{ embedFor(segment.id)!.language }}
@@ -191,6 +194,11 @@ h1 {
   border-left: 3px solid var(--border);
   background: color-mix(in srgb, var(--text) 4%, transparent);
   font-size: 0.95rem;
+}
+.caption {
+  flex-basis: 100%;
+  font-size: 0.9rem;
+  color: var(--text-muted);
 }
 .lang {
   font-size: 0.7rem;

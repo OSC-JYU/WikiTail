@@ -68,6 +68,10 @@ export interface LibraryItem {
   /** Ties language versions of one topic together, e.g. "wikidata:Q185187". */
   conceptId: string | null;
   title: string;
+  /** The author's own caption for this item, shown wherever it appears. */
+  description: string | null;
+  /** Who made the work, for citation — "Wikipedia contributors", a photographer's name. */
+  author: string | null;
   snapshotHtml: string | null;
   snapshotJson: unknown | null;
   localFileId: number | null;
@@ -164,6 +168,8 @@ export interface SourceSnapshot {
   json?: unknown;
   licenseName?: string;
   licenseUrl?: string;
+  /** Who made the work, for citation. */
+  author?: string;
   attributionText?: string;
   mediaFile?: {
     buffer: Uint8Array;

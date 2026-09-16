@@ -16,11 +16,14 @@ describe('isReusable', () => {
     expect(isReusable('CC BY-ND 4.0')).toBe(true);
   });
 
-  it('refuses NonCommercial unless the operator has said the site is non-commercial', () => {
-    expect(isReusable('CC BY-NC 4.0')).toBe(false);
-    expect(isReusable('CC BY-NC-ND 4.0')).toBe(false);
-    expect(isReusable('CC BY-NC 4.0', true)).toBe(true);
-    expect(isReusable('CC BY-NC-ND 4.0', true)).toBe(true);
+  // NC still requires attribution and forbids commercial use — the normal
+  // situation for a wiki project — so it is copied in by default. A project
+  // whose operator knows their deployment is commercial can opt out.
+  it('allows NonCommercial by default, unless the project has opted out', () => {
+    expect(isReusable('CC BY-NC 4.0')).toBe(true);
+    expect(isReusable('CC BY-NC-ND 4.0')).toBe(true);
+    expect(isReusable('CC BY-NC 4.0', false)).toBe(false);
+    expect(isReusable('CC BY-NC-ND 4.0', false)).toBe(false);
   });
 
   it('refuses restricted and unevaluated material', () => {

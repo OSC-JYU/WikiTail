@@ -4,5 +4,8 @@
     "outDir": "dist",
     "rootDir": "src"
   },
-  "include": ["src"]
+  "include": ["src"],
+  // Tests reach across packages (e.g. wikiLinks is shared with the client) and
+  // are not part of the shipped output. vitest finds them via its own config.
+  "exclude": ["**/*.test.ts"]
 }

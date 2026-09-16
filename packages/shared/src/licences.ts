@@ -1,7 +1,7 @@
 /**
- * Licences offered when uploading your own file. Imported content keeps whatever
- * licence its source declared — you cannot relicense someone else's work — so
- * this list only applies to uploads.
+ * Licences offered when uploading your own file, or writing an article. Imported
+ * content keeps whatever licence its source declared — you cannot relicense
+ * someone else's work — so this list only applies to things authored here.
  */
 export interface LicenceOption {
   id: string;

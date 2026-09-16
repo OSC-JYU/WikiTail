@@ -1,7 +1,19 @@
 import Boom from '@hapi/boom';
+import type { CommonsMediaKind } from '@wikitail/shared';
 import { config } from '../../../config.js';
 
 const actionApi = 'https://commons.wikimedia.org/w/api.php';
+
+/**
+ * CirrusSearch `filetype:` values for each kind we surface. Images cover both
+ * bitmap (JPG/PNG/GIF/…) and drawing (SVG); audio and video are single values.
+ * The pipe-separated OR syntax works inside a single `filetype:` keyword.
+ */
+const COMMONS_FILETYPE: Record<CommonsMediaKind, string> = {
+  image: 'bitmap|drawing',
+  audio: 'audio',
+  video: 'video',
+};
 
 const headers = {
   'User-Agent': config.wikipediaUserAgent,
@@ -48,21 +60,46 @@ function imageInfoParams(width: number): Record<string, string> {
   };
 }
 
-export async function searchFiles(query: string, limit: number): Promise<CommonsFile[]> {
+export async function searchFiles(
+  query: string,
+  limit: number,
+  types: CommonsMediaKind[] = ['image'],
+  offset = 0,
+): Promise<{ files: CommonsFile[]; hasMore: boolean }> {
+  // CirrusSearch `filetype:` accepts pipe-OR within one keyword. Deduplicating
+  // the OR terms keeps the URL tidy when the caller passes e.g. ['image'] on
+  // its own (`bitmap|drawing`) versus everything (`bitmap|drawing|audio|video`).
+  const kinds = types.length ? types : (['image'] as CommonsMediaKind[]);
+  const terms = [...new Set(kinds.flatMap((k) => COMMONS_FILETYPE[k].split('|')))];
+  const withFileType = terms.length
+    ? `${query} filetype:${terms.join('|')}`
+    : query;
+
   const params = new URLSearchParams({
     action: 'query',
     format: 'json',
     formatversion: '2',
     generator: 'search',
-    gsrsearch: query,
+    gsrsearch: withFileType,
     gsrlimit: String(limit),
     // Namespace 6 is File: — searching anything else returns pages, not media.
     gsrnamespace: '6',
     ...imageInfoParams(250),
   });
+  // MediaWiki paginates on `gsroffset`; only send it for pages after the first.
+  if (offset > 0) params.set('gsroffset', String(offset));
 
-  const data = await getJson<{ query?: { pages?: CommonsFile[] } }>(`${actionApi}?${params}`);
-  return [...(data.query?.pages ?? [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0));
+  // `continue.gsroffset` is the definitive "more available" signal — the page
+  // size alone would misreport the last page when the last batch happens to
+  // fill the limit exactly.
+  const data = await getJson<{
+    query?: { pages?: CommonsFile[] };
+    continue?: { gsroffset?: number };
+  }>(`${actionApi}?${params}`);
+  return {
+    files: [...(data.query?.pages ?? [])].sort((a, b) => (a.index ?? 0) - (b.index ?? 0)),
+    hasMore: typeof data.continue?.gsroffset === 'number',
+  };
 }
 
 export async function fetchFileInfo(title: string): Promise<CommonsImageInfo> {

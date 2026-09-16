@@ -5,9 +5,11 @@ import './db/connection.js'; // runs migrations as a side effect, before any rep
 import { config } from './config.js';
 import { logger } from './lib/logger.js';
 import { authPlugin } from './plugins/auth/index.js';
+import { csrfPlugin } from './plugins/csrf.js';
 import { staticPlugin } from './plugins/static.js';
 import { usersRoutesPlugin } from './modules/users/routes.js';
 import { projectsRoutesPlugin } from './modules/projects/routes.js';
+import { projectMembersRoutesPlugin } from './modules/projects/members-routes.js';
 import { articlesRoutesPlugin } from './modules/articles/routes.js';
 import { libraryRoutesPlugin } from './modules/library/routes.js';
 import { tailRoutesPlugin } from './modules/tail/routes.js';
@@ -19,9 +21,13 @@ async function main() {
     host: '0.0.0.0',
   });
 
+  // CSRF runs onPreAuth, before any auth strategy, so it protects every
+  // state-changing route including public and unauthenticated ones.
+  await server.register(csrfPlugin);
   await server.register(authPlugin);
   await server.register(usersRoutesPlugin);
   await server.register(projectsRoutesPlugin);
+  await server.register(projectMembersRoutesPlugin);
   await server.register(articlesRoutesPlugin);
   await server.register(libraryRoutesPlugin);
   await server.register(tailRoutesPlugin);

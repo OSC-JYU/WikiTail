@@ -18,7 +18,8 @@ const licenceId = ref(DEFAULT_UPLOAD_LICENCE);
 const uploading = ref(false);
 const error = ref<string | null>(null);
 
-const ACCEPT = 'image/jpeg,image/png,image/gif,image/webp,audio/*,video/mp4,video/webm,application/pdf';
+const ACCEPT =
+  'image/jpeg,image/png,image/gif,image/webp,audio/*,video/mp4,video/webm,application/ogg,.ogx,application/pdf';
 
 function pick(event: Event) {
   const chosen = (event.target as HTMLInputElement).files?.[0] ?? null;

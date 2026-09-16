@@ -1,8 +1,22 @@
 import Boom from '@hapi/boom';
+import type { FinnaMediaKind } from '@wikitail/shared';
 import { config } from '../../../config.js';
 
 const apiBase = 'https://api.finna.fi/v1';
 export const FINNA_SITE = 'https://finna.fi';
+
+/**
+ * Finna's `format_ext_str_mv` is a hierarchical facet. `0/…/` is the top-level
+ * bucket, and one bucket per media kind covers the search dimensions we care
+ * about — anything more specific (photo vs. illustration, music vs. speech) is
+ * a sub-facet the reader can narrow to on Finna itself.
+ */
+const FINNA_FORMAT: Record<FinnaMediaKind, string> = {
+  image: '0/Image/',
+  audio: '0/Sound/',
+  video: '0/Video/',
+  text: '0/Text/',
+};
 
 const headers = {
   'User-Agent': config.wikipediaUserAgent,
@@ -58,24 +72,49 @@ export async function searchRecords(
   query: string,
   limit: number,
   language: string,
-): Promise<FinnaRecord[]> {
+  types: FinnaMediaKind[] = ['image'],
+  offset = 0,
+): Promise<{ records: FinnaRecord[]; hasMore: boolean }> {
+  // Finna's VuFind backend paginates by `page`, 1-based. Callers speak in
+  // offset, which is the natural language for a "Load more" pattern; convert
+  // here. Non-multiple-of-limit offsets are rounded down to the nearest page —
+  // in practice callers always pass `offset = results.length`, so this stays
+  // aligned.
+  const page = Math.floor(offset / limit) + 1;
+
   const params = withFields(
     new URLSearchParams({
       lookfor: query,
       type: 'AllFields',
       limit: String(limit),
+      page: String(page),
       // Finna speaks fi, sv and en; anything else falls back to Finnish.
       lng: ['fi', 'sv', 'en'].includes(language) ? language : 'fi',
     }),
   );
   // free_online_boolean keeps records that actually have a file — plenty of Finna
-  // records are catalogue entries with nothing attached. The format filter keeps
-  // it to pictures. Neither implies a reuse licence; that is checked on import.
+  // records are catalogue entries with nothing attached. Neither this nor the
+  // format filter implies a reuse licence; that is checked on import.
   params.append('filter[]', 'free_online_boolean:"1"');
-  params.append('filter[]', '~format_ext_str_mv:"0/Image/"');
+  //
+  // Media-kind filter. A `~`-prefixed filter on `format_ext_str_mv` is an OR
+  // group in Finna's VuFind backend: repeat the prefix per kind and the search
+  // returns records that match any one of them. Default is images-only so
+  // callers that pass nothing get the original behaviour.
+  //
+  const kinds = types.length ? types : (['image'] as FinnaMediaKind[]);
+  for (const kind of kinds) {
+    params.append('filter[]', `~format_ext_str_mv:"${FINNA_FORMAT[kind]}"`);
+  }
 
   const data = await getJson(`${apiBase}/search?${params}`);
-  return data.records ?? [];
+  const records = data.records ?? [];
+  // Finna reports the full match count as `resultCount`, so hasMore is exact
+  // rather than "the last page happened to be full".
+  const seen = offset + records.length;
+  const hasMore =
+    typeof data.resultCount === 'number' ? seen < data.resultCount : records.length === limit;
+  return { records, hasMore };
 }
 
 export async function fetchRecord(id: string, language: string): Promise<FinnaRecord> {

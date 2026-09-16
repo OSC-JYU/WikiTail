@@ -7,6 +7,13 @@
     "viewPublished": "Katso julkaistu",
     "draftNotPublic": "Luonnos — ei vielä julkinen"
   },
+  "auth": {
+    "deniedTitle": "Sinulla ei ole pääsyä Wikitailiin",
+    "deniedBody": "Olet kirjautunut sisään, mutta tiliäsi ei ole vielä lisätty. Pyydä ylläpitäjää kutsumaan sinut.",
+    "expiredTitle": "Istuntosi on vanhentunut",
+    "expiredBody": "Sinut on kirjattu ulos pitkän käyttämättömyysjakson jälkeen. Kirjaudu sisään uudelleen jatkaaksesi.",
+    "expiredReload": "Lataa sivu uudelleen ja kirjaudu sisään"
+  },
   "projects": {
     "title": "Projektit",
     "empty": "Ei vielä projekteja.",
@@ -16,6 +23,7 @@
     "readArticle": "Lue",
     "noPublished": "Täällä ei ole vielä julkaistua sisältöä.",
     "tailHeading": "Lisää aiheesta",
+    "articleLicence": "Lisensoitu",
     "showSnapshot": "Näytä tallennettu kopio",
     "hideSnapshot": "Piilota tallennettu kopio",
     "viewSource": "Näytä lähde",
@@ -35,17 +43,92 @@
   "credit": {
     "by": "tekijä {author}",
     "descriptionLabel": "Kuvaus",
-    "descriptionPlaceholder": "Kuvaile tätä kuvaa…",
+    "descriptionPlaceholder": "Kuvaile tätä tiedostoa…",
     "save": "Tallenna",
     "licence": "Lisenssi",
     "addDescription": "Lisää kuvaus…"
   },
+  "library": {
+    "remove": "Poista",
+    "removeTitle": "Poista kirjastosta",
+    "confirmRemove": "Poistetaanko \"{title}\" kirjastosta? Tätä ei voi perua.",
+    "removeFailed": "Poisto epäonnistui:"
+  },
   "dialog": {
     "close": "Sulje",
-    "view": "Katso"
+    "view": "Katso",
+    "externalHint": "Tämä lähde ei salli upottamista. Avautuu uudessa välilehdessä."
   },
   "finna": {
     "searchPlaceholder": "Hae Finnasta — arkistot, kirjastot ja museot…",
-    "hint": "Jokaisen tuloksen kohdalla näkyy käyttöoikeus. Vapaasti lisensoidut tiedostot kopioidaan tämän artikkelin kirjastoon, rajoitetut jäävät linkiksi Finnaan."
+    "hint": "Jokaisen tuloksen kohdalla näkyy käyttöoikeus. Vapaasti lisensoidut tiedostot kopioidaan tämän artikkelin kirjastoon, rajoitetut jäävät linkiksi Finnaan.",
+    "search": "Hae",
+    "searching": "Haetaan…",
+    "import": "Tuo",
+    "importing": "Tuodaan…",
+    "inLibrary": "Kirjastossa",
+    "noResults": "Ei tuloksia.",
+    "loadMore": "Näytä lisää",
+    "loadingMore": "Haetaan…",
+    "searchIn": "Hakukohteet",
+    "type": {
+      "image": "Kuvat",
+      "audio": "Ääni",
+      "video": "Video",
+      "text": "Tekstihaku"
+    }
+  },
+  "commons": {
+    "searchPlaceholder": "Hae Wikimedia Commonsista…",
+    "hint": "Tuominen kopioi tiedoston tämän artikkelin kirjastoon, jotta se tarjoillaan täältä eikä upoteta suoraan Commonsista.",
+    "search": "Hae",
+    "searching": "Haetaan…",
+    "import": "Tuo",
+    "importing": "Tuodaan…",
+    "inLibrary": "Kirjastossa",
+    "noResults": "Ei tuloksia.",
+    "loadMore": "Näytä lisää",
+    "loadingMore": "Haetaan…",
+    "searchIn": "Hakukohteet",
+    "type": {
+      "image": "Kuvat",
+      "audio": "Ääni",
+      "video": "Video"
+    }
+  },
+  "welcome": {
+    "greeting": "Tervetuloa",
+    "greetingNamed": "Tervetuloa, {name}",
+    "intro": "WikiTail on pieni työkalu artikkelien kirjoittamiseen ja niiden pohjaamiseen valitsemiisi lähteisiin — Wikipedian sivuihin, Wikimedia Commonsin kuviin, Finnan tietueisiin tai omiin tiedostoihisi. Jokaisessa artikkelissa on häntä (tail): valikoitu lista aineistosta, johon artikkeli nojaa, ja omat muistiinpanosi siitä, miksi kukin osa on mukana. Kun artikkeli julkaistaan, kaikki sisäänkirjautuneet voivat lukea sen.",
+    "helpLink": "Näin Wikitail toimii →",
+    "yourProjects": "Sinun projektisi",
+    "empty": "Et ole vielä minkään projektin jäsen. Projektin ylläpitäjä voi lisätä sinut — pyydä sivuston vastuuhenkilöä ottamaan yhteyttä.",
+    "manageLink": "Hallinnoi projekteja ja käyttäjiä →",
+    "loadError": "Projektiesi haku epäonnistui"
+  },
+  "help": {
+    "back": "← Takaisin",
+    "title": "Näin Wikitail toimii",
+    "projectsHeading": "Projektit, artikkelit ja hännät",
+    "projectsBody1": "Projekti on pieni kokoelma artikkeleita yhteisestä aiheesta — kurssista, tutkimusteemasta, näyttelystä. Jokainen artikkeli kuuluu yhteen projektiin, ja jokainen projekti julkaisee yhdellä tai useammalla kielellä.",
+    "projectsBody2": "Artikkeli on täällä kirjoittamasi teksti. Tekstin rinnalla kulkee häntä: käsin poimittu lista sivuja, kuvia tai tietueita ulkopuolisista lähteistä, jotka tukevat kirjoitusta, kunkin vieressä lyhyt perustelusi siitä, miksi se on mukana. Lukijat näkevät ensin artikkelin ja sitten hännän; häntä on samalla lähdeviite ja lukusuositus.",
+    "draftHeading": "Luonnos ja julkaisu",
+    "draftBody": "Uusi artikkeli syntyy luonnoksena — vain projektin jäsenet näkevät sen työn alla. Kun tila vaihdetaan julkaistuksi, artikkeli tulee näkyviin kaikille Wikitailiin kirjautuneille. Julkaisu ei lukitse artikkelia; voit muokata edelleen, ja lukijat näkevät aina uusimman version.",
+    "libraryHeading": "Kirjasto",
+    "libraryBody1": "Artikkelin kirjastoon kootaan lähdeaineisto. Voit hakea Wikipediasta ja Wikidatasta taustaa, Wikimedia Commonsista vapaasti lisensoituja mediatiedostoja ja Finnasta suomalaisten arkistojen ja museoiden aineistoa. Voit myös ladata omia tiedostojasi valitsemallasi lisenssillä. Jokainen tuotu aineisto tallentuu tekijöineen ja lisensseineen, ja sen voi lisätä häntään yhdellä napautuksella.",
+    "libraryBody2": "Wikipedian artikkeleita käsitellään projektitasolla kahdella tavalla: eläväissä linkeissä säilytetään vain viittaus nykyiseen sivuun, ja tallennekopioissa myös teksti sellaisena kuin se oli tuontihetkellä. Media kopioidaan aina joka tapauksessa, joten lukijat eivät hae Commonsista suoraan.",
+    "languagesHeading": "Kielet ja käännökset",
+    "languagesBody": "Projekti ilmoittaa käyttämänsä kielet. Kun käännät artikkelin, kieliversiot pysyvät kytkettyinä toisiinsa: kieltä vaihtava lukija pysyy samassa aiheessa, ja Commons-kuvan tuominen yhdellä kielellä tuo hiljaa mukaan sen Wikipedia-kuvatekstin kaikille muille projektin kielille.",
+    "rolesHeading": "Kuka saa tehdä mitä",
+    "rolesReader": "Lukija — kuka tahansa sisäänkirjautunut. Voi lukea julkaistut artikkelit.",
+    "rolesEditor": "Projektin toimittaja — voi kirjoittaa ja muokata artikkeleita, koota häntiä ja ladata tiedostoja projektiin. Ei muuta projektin asetuksia.",
+    "rolesManager": "Projektin ylläpitäjä — kaikki mitä toimittajakin, ja lisäksi kielten, julkaisutavan ja jäsenten hallinta.",
+    "rolesAdmin": "Sivuston pääkäyttäjä — voi tehdä kaiken kaikissa projekteissa ja lisätä uusia projekteja ja käyttäjiä ylläpitosivulta.",
+    "startHeading": "Näin pääset alkuun",
+    "start1": "Avaa projekti tervetulosivulta.",
+    "start2": "Luo uusi artikkeli tai avaa olemassa oleva muokattavaksi.",
+    "start3": "Käytä editorin oikeanpuoleisia lähdevälilehtiä taustan ja median tuomiseen artikkelin kirjastoon.",
+    "start4": "Pudota kirjaston kohde artikkelin tekstiin lyhytkoodilla tai lisää se häntään omalla kommentillasi.",
+    "start5": "Kun artikkeli on valmis, vaihda tilaksi julkaistu."
   }
 }

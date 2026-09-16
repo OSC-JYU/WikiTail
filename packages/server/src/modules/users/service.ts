@@ -4,8 +4,46 @@ import { forbidden, notFound } from '../../lib/errors.js';
 import { usersRepository } from './repository.js';
 import type { User, UserRole } from '@wikitail/shared';
 
-/** Resolves (creating if needed) the local user record for an authenticated email. */
-export function resolveIdentity(email: string): User {
+/**
+ * Look up the local user record for an authenticated email.
+ *
+ * SSO tells us *who* someone is; whether Wikitail lets them in is separate.
+ * An unknown email is not admitted — an admin has to add them first via
+ * `POST /api/users`. The one exception is `ADMIN_EMAILS`: those addresses are
+ * auto-provisioned (and kept) as admin, which is the ops handle for the first
+ * sign-in on a fresh install and for restoring admin access if it is lost.
+ *
+ * Returns `undefined` for an unknown, non-configured email so the auth layer
+ * can turn that into a 403 with a friendly message.
+ */
+export function resolveIdentity(email: string): User | undefined {
+  const normalized = email.trim().toLowerCase();
+  const isConfiguredAdmin = config.adminEmails.includes(normalized);
+
+  const existing = usersRepository.findByEmail(normalized);
+  if (existing) {
+    // Honour ADMIN_EMAILS even after the row exists — otherwise a demotion or
+    // a config change can lock admin access out with no way back short of
+    // editing the database by hand.
+    if (isConfiguredAdmin && existing.role !== 'admin') {
+      return usersRepository.updateRole(existing.id, 'admin');
+    }
+    return existing;
+  }
+
+  if (isConfiguredAdmin) {
+    return usersRepository.upsertByEmail(normalized, 'admin');
+  }
+
+  return undefined;
+}
+
+/**
+ * Dev mode has no SSO in front, so the fixed local user is provisioned
+ * unconditionally the first time it is seen. The header-mode gate never runs
+ * here.
+ */
+export function resolveOrProvisionDevIdentity(email: string): User {
   const normalized = email.trim().toLowerCase();
   const role = config.adminEmails.includes(normalized) ? 'admin' : 'author';
   return usersRepository.upsertByEmail(normalized, role);

@@ -9,6 +9,12 @@ describe('kindFor', () => {
     expect(kindFor('video/webm')).toBe('video');
   });
 
+  // .ogx is Ogg's generic container (mixed codecs) with no audio/video
+  // prefix to sniff, so it is treated as video.
+  it('treats the generic Ogg container as video', () => {
+    expect(kindFor('application/ogg')).toBe('video');
+  });
+
   it('falls back to "other" for anything it cannot place', () => {
     expect(kindFor('application/pdf')).toBe('other');
     expect(kindFor('application/octet-stream')).toBe('other');

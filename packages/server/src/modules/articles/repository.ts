@@ -10,6 +10,7 @@ interface ArticleRow {
   translation_group_id: number;
   body_markdown: string;
   status: ArticleStatus;
+  license_id: string;
   created_by: number;
   created_at: string;
   updated_at: string;
@@ -25,6 +26,7 @@ function toArticle(row: ArticleRow): Article {
     translationGroupId: row.translation_group_id,
     bodyMarkdown: row.body_markdown,
     status: row.status,
+    licenseId: row.license_id,
     createdBy: row.created_by,
     createdAt: row.created_at,
     updatedAt: row.updated_at,
@@ -43,8 +45,8 @@ const listVersionsStmt = db.prepare(
   'SELECT id, language, slug, title, status FROM articles WHERE translation_group_id = ? ORDER BY language',
 );
 const insertStmt = db.prepare(`
-  INSERT INTO articles (project_id, slug, title, language, translation_group_id, body_markdown, created_by)
-  VALUES (@projectId, @slug, @title, @language, @translationGroupId, @bodyMarkdown, @createdBy)
+  INSERT INTO articles (project_id, slug, title, language, translation_group_id, body_markdown, license_id, created_by)
+  VALUES (@projectId, @slug, @title, @language, @translationGroupId, @bodyMarkdown, @licenseId, @createdBy)
 `);
 const insertGroupStmt = db.prepare('INSERT INTO translation_groups (project_id) VALUES (?)');
 const findGroupStmt = db.prepare('SELECT * FROM translation_groups WHERE id = ?');
@@ -91,6 +93,7 @@ export const articlesRepository = {
     language: string;
     translationGroupId?: number;
     bodyMarkdown: string;
+    licenseId: string;
     createdBy: number;
   }): Article {
     const create = db.transaction(() => {

@@ -1,5 +1,5 @@
 import Boom from '@hapi/boom';
-import type { SourceSearchResult, SourceSnapshot } from '@wikitail/shared';
+import type { SourceSearchPage, SourceSnapshot } from '@wikitail/shared';
 import { config } from '../../../config.js';
 import type { SourceAdapter } from '../adapter.js';
 import {
@@ -36,19 +36,25 @@ function toSiblingIds(langlinks: Record<string, string>): Record<string, string>
 export const wikipediaAdapter: SourceAdapter = {
   key: 'wikipedia',
 
-  async search(query, opts) {
+  async search(query, opts): Promise<SourceSearchPage> {
     const language = opts?.language ?? config.defaultLanguage;
-    const hits = await searchArticles(query, opts?.limit ?? 10, language);
-    return hits.map(
-      (hit): SourceSearchResult => ({
+    const { hits, hasMore } = await searchArticles(
+      query,
+      opts?.limit ?? 10,
+      language,
+      opts?.offset ?? 0,
+    );
+    return {
+      results: hits.map((hit) => ({
         sourceType: 'wikipedia',
         externalId: toExternalId(language, hit.title),
         title: hit.title,
         snippet: hit.extract,
         thumbnailUrl: hit.thumbnail?.source,
         language,
-      }),
-    );
+      })),
+      hasMore,
+    };
   },
 
   async resolveSiblings(externalId) {

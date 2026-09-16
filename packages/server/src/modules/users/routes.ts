@@ -1,6 +1,7 @@
 import type { Plugin, Server } from '@hapi/hapi';
 import Joi from 'joi';
 import type { User, UserRole } from '@wikitail/shared';
+import { listMyProjects } from '../projects/service.js';
 import { addUser, listUsers, setUserRole } from './service.js';
 
 export const usersRoutesPlugin: Plugin<undefined> = {
@@ -10,6 +11,12 @@ export const usersRoutesPlugin: Plugin<undefined> = {
       method: 'GET',
       path: '/api/me',
       handler: (request) => request.auth.credentials as unknown as User,
+    });
+
+    server.route({
+      method: 'GET',
+      path: '/api/me/projects',
+      handler: (request) => listMyProjects(request.auth.credentials as unknown as User),
     });
 
     server.route({

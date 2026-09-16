@@ -1,0 +1,26 @@
+# Keep the build context small and reproducible.
+**/node_modules
+**/dist
+packages/server/data
+packages/server/uploads
+packages/client/dist
+
+.git
+.gitignore
+.github
+.vscode
+.idea
+
+# Local env — production values come from systemd Environment= in the Quadlet.
+.env
+.env.*
+!.env.example
+
+# Images/docs not needed inside the build.
+images
+docs
+README.md
+
+# Test artefacts
+coverage
+**/*.log

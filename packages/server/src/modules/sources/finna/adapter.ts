@@ -1,6 +1,6 @@
 import Boom from '@hapi/boom';
 import sanitizeHtml from 'sanitize-html';
-import type { SourceSearchResult, SourceSnapshot } from '@wikitail/shared';
+import type { FinnaMediaKind, SourceSearchPage, SourceSnapshot } from '@wikitail/shared';
 import { config } from '../../../config.js';
 import type { SourceAdapter } from '../adapter.js';
 import { downloadImage, fetchRecord, searchRecords, FINNA_SITE, type FinnaRecord } from './client.js';
@@ -26,10 +26,12 @@ function parseExternalId(externalId: string): string {
  *
  * NoDerivatives is included: CC BY-ND permits redistributing a *verbatim* copy
  * for any purpose, and Finna's own rendering is stored unaltered. NonCommercial
- * is not, because whether a given deployment is commercial is the operator's
- * fact to know, not ours to assume — hence the setting.
+ * defaults to allowed too — it still requires attribution and forbids
+ * commercial use, which is exactly the situation a wiki project is normally
+ * in — but a project run commercially can turn this off (`allowNonCommercial:
+ * false`, from that project's setting).
  */
-export function isReusable(copyright: string | undefined, allowNonCommercial = false): boolean {
+export function isReusable(copyright: string | undefined, allowNonCommercial = true): boolean {
   if (!copyright) return false;
   const code = copyright.toUpperCase().trim();
 
@@ -72,31 +74,42 @@ function recordUrl(record: FinnaRecord): string {
 export const finnaAdapter: SourceAdapter = {
   key: 'finna',
 
-  async search(query, opts) {
-    const records = await searchRecords(
+  async search(query, opts): Promise<SourceSearchPage> {
+    const { records, hasMore } = await searchRecords(
       query,
       opts?.limit ?? 10,
       opts?.language ?? config.defaultLanguage,
+      (opts?.types as FinnaMediaKind[] | undefined) ?? ['image'],
+      opts?.offset ?? 0,
     );
 
-    return records.map((record): SourceSearchResult => {
-      const licence = record.imageRights?.copyright;
-      const reusable = isReusable(licence, config.finnaAllowNonCommercial);
-      return {
-        sourceType: 'finna',
-        externalId: toExternalId(record.id),
-        title: [record.title, record.year].filter(Boolean).join(', ') || record.id,
-        // The rights status decides whether importing copies the file or only
-        // links to it, so it belongs in front of the author before they choose.
-        snippet: licence
-          ? `${licence}${reusable ? '' : ' — link only'}`
-          : 'No licence stated — link only',
-        thumbnailUrl: record.images?.[0] ? `${FINNA_SITE}${record.images[0]}` : undefined,
-      };
-    });
+    return {
+      results: records.map((record) => {
+        const licence = record.imageRights?.copyright;
+        const reusable = isReusable(licence, opts?.allowNonCommercial);
+        // Finna returns a hierarchical list of format labels; the last entry is
+        // the most specific one the reader would recognise ("Photograph", not
+        // "Image").
+        const format = record.formats?.[record.formats.length - 1]?.translated
+          ?? record.formats?.[0]?.translated;
+        return {
+          sourceType: 'finna',
+          externalId: toExternalId(record.id),
+          title: [record.title, record.year].filter(Boolean).join(', ') || record.id,
+          // The rights status decides whether importing copies the file or only
+          // links to it, so it belongs in front of the author before they choose.
+          snippet: licence
+            ? `${licence}${reusable ? '' : ' — link only'}`
+            : 'No licence stated — link only',
+          thumbnailUrl: record.images?.[0] ? `${FINNA_SITE}${record.images[0]}` : undefined,
+          ...(format ? { format } : {}),
+        };
+      }),
+      hasMore,
+    };
   },
 
-  async importItem(externalId) {
+  async importItem(externalId, opts) {
     const id = parseExternalId(externalId);
     const record = await fetchRecord(id, config.defaultLanguage);
 
@@ -107,7 +120,7 @@ export const finnaAdapter: SourceAdapter = {
     // Restricted material is referenced, never copied: re-hosting a file whose
     // licence forbids it would not stop being wrong for being convenient.
     const mediaFile =
-      imagePath && isReusable(licence, config.finnaAllowNonCommercial)
+      imagePath && isReusable(licence, opts?.allowNonCommercial)
         ? await downloadImage(imagePath).then((file) => ({
             ...file,
             filename: `${record.title ?? id}.jpg`,

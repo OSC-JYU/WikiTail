@@ -1,6 +1,6 @@
 import Boom from '@hapi/boom';
 import sanitizeHtml from 'sanitize-html';
-import type { SourceSearchResult, SourceSnapshot } from '@wikitail/shared';
+import type { CommonsMediaKind, SourceSearchPage, SourceSnapshot } from '@wikitail/shared';
 import type { SourceAdapter } from '../adapter.js';
 import { downloadMedia, fetchFileInfo, searchFiles, type CommonsImageInfo } from './client.js';
 
@@ -56,33 +56,62 @@ export function buildAttribution(title: string, artist?: string, license?: strin
   return `"${name}"${by}${under}. Via Wikimedia Commons.`;
 }
 
+/**
+ * Reads a media kind label off a mime type. Used to tag search results so a
+ * mixed image+audio+video listing is legible — the thumbnail alone is not
+ * enough to tell the two audio files from the two videos.
+ */
+export function mimeToKind(mimeType: string | undefined): string | undefined {
+  if (!mimeType) return undefined;
+  if (mimeType.startsWith('image/')) return 'Image';
+  if (mimeType.startsWith('audio/')) return 'Audio';
+  if (mimeType.startsWith('video/')) return 'Video';
+  return undefined;
+}
+
 export const commonsAdapter: SourceAdapter = {
   key: 'commons',
 
-  async search(query, opts) {
-    const files = await searchFiles(query, opts?.limit ?? 10);
-    return files.map(
-      (file): SourceSearchResult => ({
-        sourceType: 'commons',
-        externalId: toExternalId(file.title),
-        title: file.title.replace(/^File:/, ''),
-        snippet: toPlainText(metadata(file.imageinfo?.[0] ?? {} as CommonsImageInfo, 'ImageDescription')),
-        thumbnailUrl: file.imageinfo?.[0]?.thumburl,
-      }),
+  async search(query, opts): Promise<SourceSearchPage> {
+    const { files, hasMore } = await searchFiles(
+      query,
+      opts?.limit ?? 10,
+      (opts?.types as CommonsMediaKind[] | undefined) ?? ['image'],
+      opts?.offset ?? 0,
     );
+    return {
+      results: files.map((file) => {
+        const info = file.imageinfo?.[0];
+        // Commons doesn't return a translated format label, but the mime type
+        // is enough to say "audio" or "video" in the listing next to what's
+        // otherwise a stack of thumbnails.
+        const format = mimeToKind(info?.mime);
+        return {
+          sourceType: 'commons',
+          externalId: toExternalId(file.title),
+          title: file.title.replace(/^File:/, ''),
+          snippet: toPlainText(metadata(info ?? ({} as CommonsImageInfo), 'ImageDescription')),
+          thumbnailUrl: info?.thumburl,
+          ...(format ? { format } : {}),
+        };
+      }),
+      hasMore,
+    };
   },
 
-  async importItem(externalId) {
+  async importItem(externalId, opts) {
     const title = parseExternalId(externalId);
     const info = await fetchFileInfo(title);
 
-    // Prefer the scaled rendering: the original can be tens of megabytes, and a
-    // page never needs that. The original remains linked as the source.
-    const downloadUrl = info.thumburl ?? info.url;
-    const { buffer, mimeType } = await downloadMedia(downloadUrl);
-
     const license = toPlainText(metadata(info, 'LicenseShortName'));
     const artist = toPlainText(metadata(info, 'Artist'));
+
+    // Images are always pulled locally so the page renders instantly. Audio
+    // and video only download when the project is in `hard_copy` mode; in
+    // `live_link` mode they stay on Commons and the reader gets the Commons
+    // embedded player. This mirrors the same choice Wikipedia already faces —
+    // the project decides whether it hosts its own copy or links out.
+    const mediaFile = await maybeDownload(info, title, opts?.includeBody ?? true);
 
     return {
       sourceType: 'commons',
@@ -95,11 +124,31 @@ export const commonsAdapter: SourceAdapter = {
       licenseUrl: metadata(info, 'LicenseUrl'),
       author: artist,
       attributionText: buildAttribution(title, artist, license),
-      mediaFile: {
-        buffer,
-        mimeType: info.thumbmime ?? mimeType,
-        filename: title.replace(/^File:/, ''),
-      },
+      ...(mediaFile ? { mediaFile } : {}),
     } satisfies SourceSnapshot;
   },
 };
+
+async function maybeDownload(
+  info: CommonsImageInfo,
+  title: string,
+  hardCopy: boolean,
+): Promise<{ buffer: Uint8Array; mimeType: string; filename: string } | undefined> {
+  const isImage = info.mime.startsWith('image/');
+  const isPlayable = info.mime.startsWith('audio/') || info.mime.startsWith('video/');
+
+  // Live-link mode: skip playable media; the client embeds the Commons player.
+  // Other unrecognized kinds still download so their content is available.
+  if (isPlayable && !hardCopy) return undefined;
+
+  // Images use the scaled rendering — the original can be tens of megabytes and
+  // a page never needs that. Playable media has no scaled rendering (thumburl
+  // returns an image preview instead), so fetch the original for those.
+  const downloadUrl = isImage ? (info.thumburl ?? info.url) : info.url;
+  const { buffer, mimeType } = await downloadMedia(downloadUrl);
+  return {
+    buffer,
+    mimeType: isImage ? (info.thumbmime ?? mimeType) : (info.mime ?? mimeType),
+    filename: title.replace(/^File:/, ''),
+  };
+}

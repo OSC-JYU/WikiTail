@@ -33,5 +33,15 @@ export const useLibraryStore = defineStore('library', {
       }
       return result;
     },
+    /**
+     * Removes the item from the server and, on success, from the local list.
+     * The store lets the caller handle failures — a 409 "still in use" needs
+     * to be shown, not swallowed.
+     */
+    async removeItem(id: number) {
+      await libraryApi.remove(id);
+      const index = this.items.findIndex((item) => item.id === id);
+      if (index !== -1) this.items.splice(index, 1);
+    },
   },
 });

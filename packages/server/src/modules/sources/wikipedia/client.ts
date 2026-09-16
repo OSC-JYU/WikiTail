@@ -37,7 +37,8 @@ export async function searchArticles(
   query: string,
   limit: number,
   language: string,
-): Promise<WikipediaSearchHit[]> {
+  offset = 0,
+): Promise<{ hits: WikipediaSearchHit[]; hasMore: boolean }> {
   const params = new URLSearchParams({
     action: 'query',
     format: 'json',
@@ -55,12 +56,21 @@ export async function searchArticles(
     pithumbsize: '200',
     pilimit: 'max',
   });
+  // MediaWiki's `generator=search` paginates on `gsroffset`. Zero is the
+  // default; sending it explicitly is harmless and keeps the URL uniform.
+  if (offset > 0) params.set('gsroffset', String(offset));
 
-  const data = await getJson<{ query?: { pages?: WikipediaSearchHit[] } }>(
-    `${actionApi(language)}?${params}`,
-  );
+  // `continue.gsroffset` is present iff there are more matches after this page.
+  // Its absence — not the page size — is the definitive "no more" signal.
+  const data = await getJson<{
+    query?: { pages?: WikipediaSearchHit[] };
+    continue?: { gsroffset?: number };
+  }>(`${actionApi(language)}?${params}`);
   const pages = data.query?.pages ?? [];
-  return [...pages].sort((a, b) => a.index - b.index);
+  return {
+    hits: [...pages].sort((a, b) => a.index - b.index),
+    hasMore: typeof data.continue?.gsroffset === 'number',
+  };
 }
 
 /** The wiki's content licence, fetched once per language. */

@@ -1,8 +1,9 @@
 import Boom from '@hapi/boom';
 import type { TailEntry, TailEntryView, User } from '@wikitail/shared';
-import { forbidden, notFound } from '../../lib/errors.js';
+import { notFound } from '../../lib/errors.js';
 import { articlesRepository } from '../articles/repository.js';
 import { libraryRepository } from '../library/repository.js';
+import { assertCanEdit } from '../projects/membership.js';
 import { tailRepository } from './repository.js';
 
 function requireArticle(articleId: number) {
@@ -11,11 +12,10 @@ function requireArticle(articleId: number) {
   return article;
 }
 
-function requireOwnership(actor: User, articleId: number) {
+/** Curating an article's tail is an edit — anyone who can edit the article's project can do it. */
+function requireEditAccess(actor: User, articleId: number) {
   const article = requireArticle(articleId);
-  if (article.createdBy !== actor.id && actor.role !== 'admin') {
-    forbidden('Only the author or an admin can curate this tail');
-  }
+  assertCanEdit(actor, article.projectId);
   return article;
 }
 
@@ -57,7 +57,7 @@ export function addToTail(
   articleId: number,
   input: { libraryItemId: number; commentary: string | null },
 ): TailEntry {
-  const article = requireOwnership(actor, articleId);
+  const article = requireEditAccess(actor, articleId);
 
   const item = libraryRepository.findSummaryById(input.libraryItemId);
   if (!item) notFound('Library item');
@@ -71,19 +71,19 @@ export function addToTail(
 export function updateTailEntry(actor: User, id: number, commentary: string | null): TailEntry {
   const entry = tailRepository.findById(id);
   if (!entry) notFound('Tail entry');
-  requireOwnership(actor, entry.articleId);
+  requireEditAccess(actor, entry.articleId);
   return tailRepository.updateCommentary(id, commentary);
 }
 
 export function removeTailEntry(actor: User, id: number): void {
   const entry = tailRepository.findById(id);
   if (!entry) notFound('Tail entry');
-  requireOwnership(actor, entry.articleId);
+  requireEditAccess(actor, entry.articleId);
   tailRepository.remove(id);
 }
 
 export function reorderTail(actor: User, articleId: number, orderedIds: number[]): TailEntry[] {
-  requireOwnership(actor, articleId);
+  requireEditAccess(actor, articleId);
 
   const current = tailRepository.listByArticle(articleId).map((e) => e.id);
   const sameSet =

@@ -5,6 +5,7 @@ import {
   createProject,
   getProjectBySlug,
   listProjects,
+  setFinnaAllowNonCommercial,
   setProjectLanguages,
   setSnapshotMode,
 } from './service.js';
@@ -63,6 +64,26 @@ export const projectsRoutesPlugin: Plugin<undefined> = {
           request.auth.credentials as unknown as User,
           request.params.slug as string,
           snapshotMode,
+        );
+      },
+    });
+
+    server.route({
+      method: 'PUT',
+      path: '/api/projects/{slug}/finna-allow-noncommercial',
+      options: {
+        validate: {
+          payload: Joi.object({
+            allow: Joi.boolean().required(),
+          }),
+        },
+      },
+      handler: (request) => {
+        const { allow } = request.payload as { allow: boolean };
+        return setFinnaAllowNonCommercial(
+          request.auth.credentials as unknown as User,
+          request.params.slug as string,
+          allow,
         );
       },
     });

@@ -113,6 +113,21 @@ const findByConceptStmt = db.prepare(
   `SELECT ${SUMMARY_COLUMNS} ${FROM_WITH_FILE}
    WHERE translation_group_id = ? AND concept_id = ? AND language = ?`,
 );
+const countTailStmt = db.prepare(
+  'SELECT count(*) AS n FROM tail_entries WHERE library_item_id = ?',
+);
+// Two shapes because the shortcode allows an optional label: `[[library:12]]` or
+// `[[library:12|fi:Vesimylly]]`. The trailing `]` or `|` guards against a
+// prefix collision — `[[library:12` would otherwise match `[[library:120]]`.
+// `CAST(? AS INTEGER)` matters: better-sqlite3 binds plain JS numbers as REAL,
+// so without the cast `id` concatenates as e.g. "1.0" and never matches.
+const countArticleEmbedStmt = db.prepare(`
+  SELECT count(*) AS n FROM articles
+  WHERE body_markdown LIKE '%[[library:' || CAST(? AS INTEGER) || ']]%'
+     OR body_markdown LIKE '%[[library:' || CAST(? AS INTEGER) || '|%'
+`);
+const deleteStmt = db.prepare('DELETE FROM library_items WHERE id = ?');
+const deleteFileStmt = db.prepare('DELETE FROM local_files WHERE id = ?');
 
 export const libraryRepository = {
   listByGroup(translationGroupId: number): LibraryItemSummary[] {
@@ -194,5 +209,29 @@ export const libraryRepository = {
   }): LibraryItemSummary {
     const info = insertStmt.run(input);
     return toSummary(findSummaryByIdStmt.get(Number(info.lastInsertRowid)) as LibraryItemRow);
+  },
+
+  /**
+   * Where an item is still referenced. Split by usage kind so the caller can
+   * explain to the reader why the item cannot be removed — "still in one
+   * tail" reads better than a bare "still in use".
+   */
+  countUsage(id: number): { tail: number; body: number } {
+    const tail = (countTailStmt.get(id) as { n: number }).n;
+    const body = (countArticleEmbedStmt.get(id, id) as { n: number }).n;
+    return { tail, body };
+  },
+
+  /**
+   * Removes the library row and its associated `local_files` row. The caller
+   * is responsible for having checked usage and for unlinking the actual file
+   * from disk — the repository does not touch the filesystem.
+   */
+  remove(id: number): void {
+    db.transaction(() => {
+      const row = findSummaryByIdStmt.get(id) as LibraryItemRow | undefined;
+      deleteStmt.run(id);
+      if (row?.local_file_id) deleteFileStmt.run(row.local_file_id);
+    })();
   },
 };

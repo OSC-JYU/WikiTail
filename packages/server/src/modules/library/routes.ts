@@ -8,6 +8,7 @@ import {
   getLibraryItem,
   importToLibrary,
   listLibrary,
+  removeLibraryItem,
   searchSource,
   updateLibraryItem,
   uploadToLibrary,
@@ -32,17 +33,46 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
           query: Joi.object({
             q: Joi.string().min(1).max(300).required(),
             limit: Joi.number().integer().min(1).max(25).default(10),
+            // Callers page by asking for the next chunk starting after the
+            // results they already have — `offset = results.length`. Adapters
+            // translate to their source's paging shape (Wikipedia/Commons:
+            // `gsroffset`; Finna: `page`). Capped generously to keep a wild
+            // client from asking for the 10,000th page.
+            offset: Joi.number().integer().min(0).max(1000).default(0),
             language: Joi.string().min(2).max(12).optional(),
+            // Finna scopes results by media kind; other adapters ignore this.
+            // Repeated `types=image&types=audio` or single `types=image` both
+            // work — `.single()` coerces a lone value to an array.
+            types: Joi.array()
+              .items(Joi.string().valid('image', 'audio', 'video', 'text'))
+              .single()
+              .optional(),
+            // Lets the search hint ("link only") reflect this project's
+            // finnaAllowNonCommercial setting rather than a generic default.
+            // Optional — the tab UI always has an article to search from, but
+            // the route does not require it.
+            articleId: Joi.number().integer().optional(),
           }),
         },
       },
       handler: (request) => {
-        const { q, limit, language } = request.query as {
+        const { q, limit, offset, language, types, articleId } = request.query as {
           q: string;
           limit: number;
+          offset: number;
           language?: string;
+          types?: string[];
+          articleId?: number;
         };
-        return searchSource(request.params.sourceType as SourceType, q, limit, language);
+        return searchSource(
+          request.params.sourceType as SourceType,
+          q,
+          limit,
+          language,
+          types,
+          offset,
+          articleId,
+        );
       },
     });
 
@@ -121,7 +151,26 @@ export const libraryRoutesPlugin: Plugin<undefined> = {
           author?: string;
           licenceId?: string;
         };
-        return updateLibraryItem(Number(request.params.id), input);
+        return updateLibraryItem(
+          request.auth.credentials as unknown as User,
+          Number(request.params.id),
+          input,
+        );
+      },
+    });
+
+    server.route({
+      method: 'DELETE',
+      path: '/api/library/{id}',
+      handler: (request, h) => {
+        // Refuses with 409 when the item is still referenced by a tail entry
+        // or an article body; the client shows the returned message so the
+        // reader can go and clear those references first.
+        removeLibraryItem(
+          request.auth.credentials as unknown as User,
+          Number(request.params.id),
+        );
+        return h.response().code(204);
       },
     });
 

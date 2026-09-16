@@ -5,7 +5,7 @@ import { getProjectBySlug } from '../projects/service.js';
 import {
   createArticle,
   createTranslation,
-  getArticle,
+  getVisibleArticle,
   listArticlesForProject,
   listVersions,
   resolveInLanguage,
@@ -24,9 +24,10 @@ export const articlesRoutesPlugin: Plugin<undefined> = {
         },
       },
       handler: (request) => {
+        const actor = request.auth.credentials as unknown as User;
         const project = getProjectBySlug(request.params.slug as string);
         const { language } = request.query as { language?: string };
-        return listArticlesForProject(project.id, language);
+        return listArticlesForProject(actor, project.id, language);
       },
     });
 
@@ -39,21 +40,24 @@ export const articlesRoutesPlugin: Plugin<undefined> = {
             title: Joi.string().min(1).max(200).required(),
             bodyMarkdown: Joi.string().allow('').optional(),
             language: Joi.string().min(2).max(12).optional(),
+            licenseId: Joi.string().optional(),
           }),
         },
       },
       handler: (request) => {
         const actor = request.auth.credentials as unknown as User;
         const project = getProjectBySlug(request.params.slug as string);
-        const { title, bodyMarkdown, language } = request.payload as {
+        const { title, bodyMarkdown, language, licenseId } = request.payload as {
           title: string;
           bodyMarkdown?: string;
           language?: string;
+          licenseId?: string;
         };
         return createArticle(actor, project.id, {
           title,
           bodyMarkdown: bodyMarkdown ?? '',
           language,
+          licenseId,
         });
       },
     });
@@ -61,13 +65,18 @@ export const articlesRoutesPlugin: Plugin<undefined> = {
     server.route({
       method: 'GET',
       path: '/api/articles/{id}',
-      handler: (request) => getArticle(Number(request.params.id)),
+      handler: (request) =>
+        getVisibleArticle(request.auth.credentials as unknown as User, Number(request.params.id)),
     });
 
     server.route({
       method: 'GET',
       path: '/api/articles/{id}/versions',
-      handler: (request) => listVersions(getArticle(Number(request.params.id)).translationGroupId),
+      handler: (request) => {
+        const actor = request.auth.credentials as unknown as User;
+        const article = getVisibleArticle(actor, Number(request.params.id));
+        return listVersions(actor, article.translationGroupId);
+      },
     });
 
     server.route({
@@ -107,8 +116,9 @@ export const articlesRoutesPlugin: Plugin<undefined> = {
         validate: { query: Joi.object({ language: Joi.string().min(2).max(12).required() }) },
       },
       handler: (request) => {
+        const actor = request.auth.credentials as unknown as User;
         const { language } = request.query as { language: string };
-        return resolveInLanguage(Number(request.params.id), language);
+        return resolveInLanguage(actor, Number(request.params.id), language);
       },
     });
 

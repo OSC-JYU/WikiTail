@@ -18,9 +18,14 @@ const wideLayout = computed(() => route.name === 'article-edit');
 
 onMounted(() => {
   document.documentElement.lang = locale.value;
-  // Public visitors have no session; a failure here is expected, not an error.
-  auth.load().catch(() => undefined);
+  // The store handles its own errors — a public visitor (no session at all)
+  // and an SSO'd but not-on-the-guest-list visitor are told apart there.
+  auth.load().then(() => auth.startSessionPoll());
 });
+
+function reloadForSignIn() {
+  window.location.reload();
+}
 </script>
 
 <template>
@@ -34,6 +39,24 @@ onMounted(() => {
       <span v-if="auth.user" class="user">{{ auth.user.email }}</span>
     </div>
   </header>
+  <!-- SSO recognised them but Wikitail does not. Public routes still work
+       (they are auth: false on the server), so this is a banner rather than a
+       full lock-out — the visitor can still read. -->
+  <div v-if="auth.denied" class="access-denied" role="alert">
+    <strong>{{ $t('auth.deniedTitle') }}</strong>
+    <span>{{ $t('auth.deniedBody') }}</span>
+  </div>
+  <!-- The SSO session timed out during an idle period we cannot detect any
+       other way than a poll finding /api/me suddenly unauthenticated. There
+       is nothing to retry — only a fresh sign-in fixes it — so this blocks
+       the page rather than sitting as a banner that is easy to miss. -->
+  <div v-if="auth.expired" class="session-expired" role="alertdialog">
+    <div class="session-expired-box">
+      <strong>{{ $t('auth.expiredTitle') }}</strong>
+      <p>{{ $t('auth.expiredBody') }}</p>
+      <button type="button" @click="reloadForSignIn">{{ $t('auth.expiredReload') }}</button>
+    </div>
+  </div>
   <main :class="{ wide: wideLayout }">
     <RouterView />
   </main>
@@ -86,5 +109,46 @@ main {
 }
 main.wide {
   max-width: 88rem;
+}
+.access-denied {
+  max-width: 46rem;
+  margin: 1rem auto 0;
+  padding: 0.75rem 1rem;
+  border: 1px solid #d97706;
+  background: #fef3c7;
+  color: #78350f;
+  border-radius: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  font-size: 0.9rem;
+}
+.access-denied strong {
+  font-size: 1rem;
+}
+.session-expired {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1rem;
+  background: rgba(0, 0, 0, 0.5);
+}
+.session-expired-box {
+  max-width: 24rem;
+  padding: 1.25rem 1.5rem;
+  background: var(--bg, #fff);
+  border-radius: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+.session-expired-box strong {
+  font-size: 1.05rem;
+}
+.session-expired-box button {
+  align-self: flex-start;
 }
 </style>

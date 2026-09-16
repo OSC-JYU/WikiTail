@@ -1,7 +1,9 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue';
+import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
-import type { Article, Project, SnapshotMode } from '@wikitail/shared';
+import type { Article, Project, ProjectMember, SnapshotMode } from '@wikitail/shared';
+import { DEFAULT_UPLOAD_LICENCE, UPLOAD_LICENCES } from '@wikitail/shared';
+import { membersApi } from '../api/members';
 import { projectsApi } from '../api/projects';
 import { useAuthStore } from '../stores/auth';
 
@@ -11,19 +13,42 @@ const auth = useAuthStore();
 
 const project = ref<Project | null>(null);
 const articles = ref<Article[]>([]);
+const members = ref<ProjectMember[]>([]);
 const newTitle = ref('');
 const newLanguage = ref('');
+const newLicenseId = ref(DEFAULT_UPLOAD_LICENCE);
 const creating = ref(false);
 const languageInput = ref('');
 const savingLanguages = ref(false);
 const savingMode = ref(false);
+const savingFinnaSetting = ref(false);
 const error = ref<string | null>(null);
+
+/**
+ * Managers can change project settings; editors can only add articles. Admins
+ * bypass membership entirely. We treat "unknown role" as read-only rather than
+ * hiding the whole surface so a non-member still sees the article list.
+ */
+const myRole = computed(() => {
+  if (auth.isAdmin) return 'admin' as const;
+  return members.value.find((m) => m.userId === auth.user?.id)?.role ?? null;
+});
+
+const canEdit = computed(() => myRole.value !== null);
+const canManage = computed(() => myRole.value === 'admin' || myRole.value === 'manager');
 
 async function load() {
   project.value = await projectsApi.get(props.slug);
   articles.value = await projectsApi.listArticles(props.slug);
   newLanguage.value = project.value.languages[0] ?? '';
   languageInput.value = project.value.languages.join(', ');
+  // Members endpoint is scoped to admins + members; non-members get 403.
+  // Swallow it — the UI just doesn't show member-only controls.
+  try {
+    members.value = await membersApi.list(props.slug);
+  } catch {
+    members.value = [];
+  }
 }
 
 onMounted(load);
@@ -36,6 +61,7 @@ async function createArticle() {
     const article = await projectsApi.createArticle(props.slug, {
       title: newTitle.value.trim(),
       language: newLanguage.value,
+      licenseId: newLicenseId.value,
     });
     newTitle.value = '';
     router.push({ name: 'article-edit', params: { slug: props.slug, id: article.id } });
@@ -55,6 +81,18 @@ async function setSnapshotMode(mode: SnapshotMode) {
     error.value = e instanceof Error ? e.message : 'Could not change that setting';
   } finally {
     savingMode.value = false;
+  }
+}
+
+async function setFinnaAllowNonCommercial(allow: boolean) {
+  savingFinnaSetting.value = true;
+  error.value = null;
+  try {
+    project.value = await projectsApi.setFinnaAllowNonCommercial(props.slug, allow);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Could not change that setting';
+  } finally {
+    savingFinnaSetting.value = false;
   }
 }
 
@@ -85,6 +123,12 @@ async function saveLanguages() {
       <span v-for="language in project.languages" :key="language" class="lang">{{ language }}</span>
     </p>
 
+    <p v-if="canEdit" class="members-link">
+      <RouterLink :to="{ name: 'project-members', params: { slug: project.slug } }">
+        Members ({{ members.length }}) →
+      </RouterLink>
+    </p>
+
     <p v-if="error" class="error">{{ error }}</p>
 
     <h2>Articles</h2>
@@ -101,17 +145,22 @@ async function saveLanguages() {
     </ul>
     <p v-if="articles.length === 0">No articles yet.</p>
 
-    <form class="new-article" @submit.prevent="createArticle">
+    <form v-if="canEdit" class="new-article" @submit.prevent="createArticle">
       <input v-model="newTitle" placeholder="Article title" />
       <select v-model="newLanguage">
         <option v-for="language in project.languages" :key="language" :value="language">
           {{ language }}
         </option>
       </select>
+      <select v-model="newLicenseId" title="Licence">
+        <option v-for="licence in UPLOAD_LICENCES" :key="licence.id" :value="licence.id">
+          {{ licence.name }}
+        </option>
+      </select>
       <button type="submit" :disabled="creating">Create article</button>
     </form>
 
-    <section v-if="auth.isAdmin" class="setting">
+    <section v-if="canManage" class="setting">
       <h2>Imported articles</h2>
       <label>
         <input
@@ -144,7 +193,24 @@ async function saveLanguages() {
       </p>
     </section>
 
-    <form v-if="auth.isAdmin" class="languages-form" @submit.prevent="saveLanguages">
+    <section v-if="canManage" class="setting">
+      <h2>Finna NonCommercial material</h2>
+      <label class="checkbox">
+        <input
+          type="checkbox"
+          :checked="project.finnaAllowNonCommercial"
+          :disabled="savingFinnaSetting"
+          @change="setFinnaAllowNonCommercial(($event.target as HTMLInputElement).checked)"
+        />
+        <span>
+          <strong>Copy in NonCommercial (CC BY-NC*) material</strong> when it is imported from Finna,
+          instead of only linking to it. Still requires attribution and forbids commercial use —
+          turn this off only if this project's deployment is itself commercial.
+        </span>
+      </label>
+    </section>
+
+    <form v-if="canManage" class="languages-form" @submit.prevent="saveLanguages">
       <h2>Project languages</h2>
       <p class="hint">
         Comma-separated. Authors may only write in these, and imports fetch these language versions.
@@ -190,6 +256,10 @@ async function saveLanguages() {
 .languages {
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+.members-link {
+  font-size: 0.85rem;
+  margin: 0.25rem 0 1rem;
 }
 .new-article {
   display: flex;

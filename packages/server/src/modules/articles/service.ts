@@ -1,7 +1,9 @@
 import Boom from '@hapi/boom';
 import type { Article, ArticleStatus, ArticleVersion, User } from '@wikitail/shared';
-import { forbidden, notFound } from '../../lib/errors.js';
+import { DEFAULT_UPLOAD_LICENCE, findLicence } from '@wikitail/shared';
+import { notFound } from '../../lib/errors.js';
 import { slugify } from '../../lib/slug.js';
+import { assertCanEdit, canViewDrafts } from '../projects/membership.js';
 import { projectsRepository } from '../projects/repository.js';
 import { assertLanguageAllowed } from '../projects/service.js';
 import { tailRepository } from '../tail/repository.js';
@@ -18,9 +20,16 @@ function requireProject(projectId: number) {
   return project;
 }
 
-export function listArticlesForProject(projectId: number, language?: string): Article[] {
+export function listArticlesForProject(
+  actor: User,
+  projectId: number,
+  language?: string,
+): Article[] {
   requireProject(projectId);
-  const articles = articlesRepository.listByProject(projectId);
+  const seesDrafts = canViewDrafts(actor, projectId);
+  const articles = articlesRepository
+    .listByProject(projectId)
+    .filter((a) => seesDrafts || a.status === 'published');
   return language ? articles.filter((a) => a.language === language) : articles;
 }
 
@@ -30,8 +39,27 @@ export function getArticle(id: number): Article {
   return article;
 }
 
-export function listVersions(translationGroupId: number): ArticleVersion[] {
-  return articlesRepository.listVersions(translationGroupId);
+/**
+ * The authed article endpoint (`GET /api/articles/{id}`) — same as {@link getArticle}
+ * but hides drafts from non-members so signed-in visitors can't discover the
+ * existence of unpublished work.
+ */
+export function getVisibleArticle(actor: User, id: number): Article {
+  const article = getArticle(id);
+  if (article.status !== 'published' && !canViewDrafts(actor, article.projectId)) {
+    // 404, not 403 — non-members shouldn't learn the id exists.
+    notFound('Article');
+  }
+  return article;
+}
+
+export function listVersions(actor: User, translationGroupId: number): ArticleVersion[] {
+  const versions = articlesRepository.listVersions(translationGroupId);
+  if (versions.length === 0) return versions;
+  const first = articlesRepository.findById(versions[0]!.id);
+  if (!first) return versions;
+  const seesDrafts = canViewDrafts(actor, first.projectId);
+  return seesDrafts ? versions : versions.filter((v) => v.status === 'published');
 }
 
 /**
@@ -39,25 +67,40 @@ export function listVersions(translationGroupId: number): ArticleVersion[] {
  * reported as missing rather than quietly replaced by another language — writing
  * the translation is the author's job, and the reader is told plainly.
  */
-export function resolveInLanguage(translationGroupId: number, language: string): ResolvedArticle {
-  if (!articlesRepository.findGroup(translationGroupId)) notFound('Translation group');
+export function resolveInLanguage(
+  actor: User,
+  translationGroupId: number,
+  language: string,
+): ResolvedArticle {
+  const group = articlesRepository.findGroup(translationGroupId);
+  if (!group) notFound('Translation group');
 
-  const versions = articlesRepository.listVersions(translationGroupId);
-  const match = articlesRepository.findInGroup(translationGroupId, language);
+  const seesDrafts = canViewDrafts(actor, group.projectId);
+  const versions = articlesRepository
+    .listVersions(translationGroupId)
+    .filter((v) => seesDrafts || v.status === 'published');
+  const match = versions.find((v) => v.language === language);
+  const article = match ? articlesRepository.findById(match.id) : undefined;
 
-  return match
-    ? { kind: 'match', article: match, versions }
+  return article
+    ? { kind: 'match', article, versions }
     : { kind: 'missing', requestedLanguage: language, versions };
 }
 
 export function createArticle(
   actor: User,
   projectId: number,
-  input: { title: string; bodyMarkdown: string; language?: string },
+  input: { title: string; bodyMarkdown: string; language?: string; licenseId?: string },
 ): Article {
   const project = requireProject(projectId);
+  assertCanEdit(actor, project.id);
   const language = input.language ?? project.languages[0];
   assertLanguageAllowed(project, language);
+
+  const licenseId = input.licenseId ?? DEFAULT_UPLOAD_LICENCE;
+  if (!findLicence(licenseId)) {
+    throw Boom.badRequest(`Unknown licence: ${licenseId}`);
+  }
 
   return articlesRepository.create({
     projectId,
@@ -65,6 +108,7 @@ export function createArticle(
     title: input.title,
     language,
     bodyMarkdown: input.bodyMarkdown,
+    licenseId,
     createdBy: actor.id,
   });
 }
@@ -83,6 +127,7 @@ export function createTranslation(
 ): Article {
   const source = getArticle(sourceArticleId);
   const project = requireProject(source.projectId);
+  assertCanEdit(actor, project.id);
   assertLanguageAllowed(project, input.language);
 
   if (articlesRepository.findInGroup(source.translationGroupId, input.language)) {
@@ -96,6 +141,9 @@ export function createTranslation(
     language: input.language,
     translationGroupId: source.translationGroupId,
     bodyMarkdown: input.bodyMarkdown,
+    // A translation is the same work in another language, so it keeps the
+    // licence the original was published under rather than asking again.
+    licenseId: source.licenseId,
     createdBy: actor.id,
   });
 
@@ -112,8 +160,6 @@ export function updateArticle(
   input: { title: string; bodyMarkdown: string; status: ArticleStatus },
 ): Article {
   const article = getArticle(id);
-  if (article.createdBy !== actor.id && actor.role !== 'admin') {
-    forbidden('Only the author or an admin can edit this article');
-  }
+  assertCanEdit(actor, article.projectId);
   return articlesRepository.update(id, input);
 }

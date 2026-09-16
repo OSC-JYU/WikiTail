@@ -442,11 +442,13 @@ Finna notes:
   records are catalogue entries with no file attached.
 - **A file is copied only where the licence plainly allows redistribution** — CC0, PDM, CC BY, CC
   BY-SA and CC BY-ND, the last because ND still permits redistributing a *verbatim* copy and Finna's
-  own rendering is stored unaltered. Anything else (InC, CNE, NonCommercial) is imported as a
-  reference: title, credit and a link to Finna, with no local file. Each search result says which it
-  will be before the author chooses.
-- NonCommercial is behind `FINNA_ALLOW_NONCOMMERCIAL`, off by default: whether a deployment is
-  commercial is the operator's fact to know, not ours to assume.
+  own rendering is stored unaltered. Anything else (InC, CNE, NonCommercial when a project opts out)
+  is imported as a reference: title, credit and a link to Finna, with no local file. Each search
+  result says which it will be before the author chooses.
+- NonCommercial is copied in by default — it still requires attribution and forbids commercial use,
+  which is the situation a wiki project is normally in. It is a per-project setting
+  (`finnaAllowNonCommercial`, managed on the project page) rather than a global one: only the
+  operator of a given project knows whether their deployment is commercial.
 - Finna's terms ask for the creator **and** the holding organisation, so the credit names both.
 
 ### M6 — Static site export (planned)

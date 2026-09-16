@@ -1,13 +1,26 @@
 <script setup lang="ts">
+import { computed } from 'vue';
 import type { LibraryItemSummary, TailEntryView } from '@wikitail/shared';
 import LicenseBadge from '../common/LicenseBadge.vue';
 import MediaPreview from '../common/MediaPreview.vue';
+import { commonsEmbedFor } from '../../lib/commonsEmbed';
 
-defineProps<{ entry: TailEntryView }>();
+const props = defineProps<{ entry: TailEntryView }>();
 
 // One dialog is owned by the page rather than one per card, so a feed of twenty
 // cards does not carry twenty empty dialogs around.
 const emit = defineEmits<{ view: [item: LibraryItemSummary] }>();
+
+/**
+ * Commons audio and video items in a live-link project live as embedded
+ * players rather than local files — they have no `mediaUrl`, so the plain
+ * button-wrapped `MediaPreview` branch would skip them and the card would
+ * render without its player.
+ */
+const embed = computed(() => commonsEmbedFor(props.entry.item));
+
+/** Anything the reader can watch, listen to or look at without opening a body. */
+const hasVisibleMedia = computed(() => Boolean(props.entry.item.mediaUrl || embed.value));
 </script>
 
 <template>
@@ -18,6 +31,13 @@ const emit = defineEmits<{ view: [item: LibraryItemSummary] }>();
     <button v-if="entry.item.mediaUrl" class="media-button" @click="emit('view', entry.item)">
       <MediaPreview :item="entry.item" />
     </button>
+    <!--
+      Embed players are not wrapped in a button — the iframe swallows clicks,
+      so the wrapper would only fire from the thin margin around it. The
+      dedicated "View" action below opens the dialog when the reader wants a
+      larger player.
+    -->
+    <MediaPreview v-else-if="embed" :item="entry.item" />
     <p v-if="entry.item.description" class="caption">{{ entry.item.description }}</p>
 
     <div class="source">
@@ -30,7 +50,7 @@ const emit = defineEmits<{ view: [item: LibraryItemSummary] }>();
 
     <div class="actions">
       <button @click="emit('view', entry.item)">
-        {{ entry.item.mediaUrl ? $t('dialog.view') : $t('browse.showSnapshot') }}
+        {{ hasVisibleMedia ? $t('dialog.view') : $t('browse.showSnapshot') }}
       </button>
     </div>
 

@@ -14,23 +14,50 @@ const query = ref('');
 const results = ref<SourceSearchResult[]>([]);
 const searching = ref(false);
 const searched = ref(false);
+const loadingMore = ref(false);
+const hasMore = ref(false);
 const importingId = ref<string | null>(null);
 const error = ref<string | null>(null);
 const lastImport = ref<string | null>(null);
+
+/** Page size for the initial search and each "Load more" click. */
+const PAGE_SIZE = 10;
 
 async function search() {
   if (!query.value.trim()) return;
   searching.value = true;
   error.value = null;
   try {
-    results.value = await libraryApi.search('wikipedia', query.value.trim(), {
+    const page = await libraryApi.search('wikipedia', query.value.trim(), {
+      limit: PAGE_SIZE,
       language: props.language,
     });
+    results.value = page.results;
+    hasMore.value = page.hasMore;
     searched.value = true;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Search failed';
   } finally {
     searching.value = false;
+  }
+}
+
+async function loadMore() {
+  if (!query.value.trim() || loadingMore.value || !hasMore.value) return;
+  loadingMore.value = true;
+  error.value = null;
+  try {
+    const page = await libraryApi.search('wikipedia', query.value.trim(), {
+      limit: PAGE_SIZE,
+      offset: results.value.length,
+      language: props.language,
+    });
+    results.value = [...results.value, ...page.results];
+    hasMore.value = page.hasMore;
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Search failed';
+  } finally {
+    loadingMore.value = false;
   }
 }
 
@@ -88,6 +115,17 @@ async function importResult(result: SourceSearchResult) {
     </li>
   </ul>
 
+  <!-- Fetches the next page of matches from the same wiki and appends them
+       below the current list. Absent when the wiki reports no more results. -->
+  <button
+    v-if="hasMore && !searching"
+    class="load-more"
+    :disabled="loadingMore"
+    @click="loadMore"
+  >
+    {{ loadingMore ? 'Loading…' : 'Load more' }}
+  </button>
+
   <p v-if="searched && results.length === 0 && !searching">No results.</p>
 </template>
 
@@ -132,6 +170,23 @@ async function importResult(result: SourceSearchResult) {
   font-size: 0.8rem;
   color: var(--text-muted);
   white-space: nowrap;
+}
+.load-more {
+  display: block;
+  width: 100%;
+  margin-top: 0.75rem;
+  padding: 0.5rem;
+  background: transparent;
+  border: 1px dashed var(--border);
+  cursor: pointer;
+  color: var(--text-muted);
+}
+.load-more:hover:not(:disabled) {
+  background: var(--surface-hover, rgba(0, 0, 0, 0.03));
+}
+.load-more:disabled {
+  cursor: default;
+  opacity: 0.6;
 }
 .error {
   color: #c0392b;

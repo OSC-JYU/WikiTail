@@ -1,0 +1,14 @@
+# Wikitail — SQLite volume.
+#
+# Deployed to /etc/containers/systemd/wikitail-data.volume. Managed by podman;
+# inspect with `podman volume inspect systemd-wikitail-data`. To back up:
+#
+#     podman volume export systemd-wikitail-data -o wikitail-data.tar
+#
+# Or point Device= at a host path if you prefer a bind mount.
+
+[Unit]
+Description=Wikitail SQLite volume
+
+[Volume]
+VolumeName=wikitail-data

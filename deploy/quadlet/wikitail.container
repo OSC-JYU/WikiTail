@@ -1,0 +1,77 @@
+# Wikitail — Podman Quadlet unit.
+#
+# Deploy target: RHEL 9 with podman (>= 4.4 for Quadlets). Rootful install —
+# copy this file to /etc/containers/systemd/wikitail.container and reload:
+#
+#     sudo cp deploy/quadlet/*.container deploy/quadlet/*.volume /etc/containers/systemd/
+#     sudo systemctl daemon-reload
+#     sudo systemctl start wikitail.service
+#
+# For a rootless install, put these files under ~/.config/containers/systemd/
+# and run `systemctl --user daemon-reload` instead. Rootless also needs
+# `loginctl enable-linger <user>` so the service survives logout.
+#
+# See deploy/README.md for the full walkthrough (image build, Apache, SELinux).
+
+[Unit]
+Description=Wikitail — local wiki-tail app
+Documentation=https://github.com/local/wikitail
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+# The image is built locally (see deploy/README.md). Change to a registry
+# reference like ghcr.io/you/wikitail:1.2.3 once you have one.
+Image=localhost/wikitail:latest
+
+ContainerName=wikitail
+
+# Bind only to loopback — Apache in front does TLS and adds the `mail` header.
+# Nothing else on the box should be able to reach this port directly.
+PublishPort=127.0.0.1:3000:3000
+
+# Volumes: SQLite and uploads. Declared as separate .volume units below so
+# `podman volume ls` shows them and backups are straightforward. The :Z suffix
+# relabels the bind mounts for SELinux (RHEL 9 default is enforcing).
+Volume=wikitail-data.volume:/data:Z
+Volume=wikitail-uploads.volume:/uploads:Z
+
+# Runtime configuration. Anything sensitive (admin emails, keys) belongs in a
+# systemd drop-in under /etc/systemd/system/wikitail.service.d/ rather than
+# committed here.
+Environment=AUTH_MODE=header
+Environment=DEV_USER_EMAIL=dev@wikitail.local
+Environment=DEFAULT_LANGUAGE=en
+Environment=DB_PATH=/data/wikitail.db
+Environment=UPLOADS_DIR=/uploads
+Environment=COMMONS_IMAGE_WIDTH=1600
+Environment=MAX_IMPORT_BYTES=26214400
+Environment=MAX_UPLOAD_BYTES=209715200
+# Wikimedia asks callers to identify themselves — put a real contact in here.
+Environment="WIKIPEDIA_USER_AGENT=Wikitail/1.0 (contact: admin@example.org)"
+# ADMIN_EMAILS is the initial admin bootstrap: any user whose `mail` header
+# matches becomes admin on first sign-in.
+Environment=ADMIN_EMAILS=admin@example.org
+
+# Hardening. Wikitail only needs its two volumes writable.
+NoNewPrivileges=true
+ReadOnly=true
+Tmpfs=/tmp:rw,size=64M
+
+# Liveness — the API answers /api/users/me with 401 when no `mail` header is
+# sent, which is a healthy answer (auth is wired up). A 500+ or a connection
+# error is the only failure. Podman restarts the container after MaxRetries.
+HealthCmd=node -e "fetch('http://127.0.0.1:3000/api/users/me').then(r=>process.exit(r.status>=500?1:0)).catch(()=>process.exit(1))"
+HealthInterval=30s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=20s
+
+[Service]
+Restart=on-failure
+RestartSec=5s
+# Give the client a moment to build for the first-time run.
+TimeoutStartSec=90
+
+[Install]
+WantedBy=multi-user.target default.target

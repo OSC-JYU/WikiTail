@@ -4,7 +4,7 @@ import type {
   ImportResult,
   LibraryItem,
   LibraryItemSummary,
-  SourceSearchResult,
+  SourceSearchPage,
   SnapshotMode,
   SourceSnapshot,
   SourceType,
@@ -18,10 +18,12 @@ import { filesRepository } from '../files/repository.js';
 import {
   isUploadable,
   kindFor,
+  unlinkMedia,
   uploadableTypes,
   writeMedia,
   writeMediaStream,
 } from '../files/storage.js';
+import { assertCanEdit } from '../projects/membership.js';
 import { projectsRepository } from '../projects/repository.js';
 import { getAdapter } from '../sources/registry.js';
 import { libraryRepository } from './repository.js';
@@ -31,8 +33,12 @@ export function searchSource(
   query: string,
   limit: number,
   language?: string,
-): Promise<SourceSearchResult[]> {
-  return getAdapter(sourceType).search(query, { limit, language });
+  types?: string[],
+  offset?: number,
+  articleId?: number,
+): Promise<SourceSearchPage> {
+  const allowNonCommercial = articleId !== undefined ? finnaAllowNonCommercialFor(articleId) : undefined;
+  return getAdapter(sourceType).search(query, { limit, language, types, offset, allowNonCommercial });
 }
 
 /**
@@ -56,6 +62,13 @@ function groupFor(articleId: number): number {
   return article.translationGroupId;
 }
 
+function requireEditAccess(actor: User, articleId: number) {
+  const article = articlesRepository.findById(articleId);
+  if (!article) notFound('Article');
+  assertCanEdit(actor, article.projectId);
+  return article;
+}
+
 /**
  * Fetches from the external source and stores a local snapshot. When the import
  * happens in the context of an article, the sibling language versions for that
@@ -68,10 +81,15 @@ export async function importToLibrary(
   externalId: string,
   articleId: number,
 ): Promise<ImportResult> {
+  requireEditAccess(actor, articleId);
   const group = groupFor(articleId);
   const adapter = getAdapter(sourceType);
-  // Whether this project keeps its own copy of an article or only links to it.
-  const importOpts = { includeBody: snapshotModeFor(articleId) === 'hard_copy' };
+  // Whether this project keeps its own copy of an article or only links to it,
+  // and whether Finna NonCommercial material is copied in rather than linked.
+  const importOpts = {
+    includeBody: snapshotModeFor(articleId) === 'hard_copy',
+    allowNonCommercial: finnaAllowNonCommercialFor(articleId),
+  };
   const existing = libraryRepository.findByExternalId(group, sourceType, externalId);
 
   // Re-importing does not re-fetch content, but sibling languages are still
@@ -143,6 +161,7 @@ export async function uploadToLibrary(
     );
   }
 
+  requireEditAccess(actor, articleId);
   const group = groupFor(articleId);
   const licence = findLicence(input.licenceId ?? DEFAULT_UPLOAD_LICENCE);
   if (!licence) {
@@ -186,10 +205,13 @@ export async function uploadToLibrary(
  * whoever made it, and are not ours to restate.
  */
 export function updateLibraryItem(
+  actor: User,
   id: number,
   input: { description?: string | null; title?: string; author?: string; licenceId?: string },
 ): LibraryItemSummary {
   const item = getLibraryItem(id);
+  const group = articlesRepository.findGroup(item.translationGroupId);
+  if (group) assertCanEdit(actor, group.projectId);
   const ownUpload = item.sourceType === 'local_upload';
 
   if (!ownUpload && (input.title || input.author || input.licenceId)) {
@@ -209,6 +231,46 @@ export function updateLibraryItem(
     licenseUrl: licence ? licence.url : item.licenseUrl,
     attributionText: item.attributionText,
   });
+}
+
+/**
+ * Removes a library item, its `local_files` row, and the file it points at.
+ * The item must be unreferenced everywhere — no tail entry may point at it and
+ * no article body may embed it via `[[library:N]]`. Refusing rather than
+ * cascading is deliberate: a tail entry or an embed is someone's editorial
+ * choice, and dropping it silently because the reader deleted the underlying
+ * source removes information the writer meant to keep.
+ */
+export function removeLibraryItem(actor: User, id: number): void {
+  const item = getLibraryItem(id);
+  const group = articlesRepository.findGroup(item.translationGroupId);
+  if (group) assertCanEdit(actor, group.projectId);
+
+  const usage = libraryRepository.countUsage(id);
+  if (usage.tail > 0 || usage.body > 0) {
+    // Split parts read better than a bare count: "still in 2 tails and 1
+    // article body" tells the reader where to go and unlink it.
+    const parts = [
+      usage.tail > 0 ? `${usage.tail} tail entr${usage.tail === 1 ? 'y' : 'ies'}` : null,
+      usage.body > 0 ? `${usage.body} article bod${usage.body === 1 ? 'y' : 'ies'}` : null,
+    ].filter(Boolean);
+    throw Boom.conflict(
+      `Still referenced by ${parts.join(' and ')} — remove those first.`,
+      { tail: usage.tail, body: usage.body },
+    );
+  }
+
+  const diskPath = item.mediaUrl ? item.mediaUrl.replace(/^\/uploads\//, '') : null;
+  libraryRepository.remove(id);
+  // Disk cleanup runs last: if it fails, the database is already consistent and
+  // the leftover file is a maintenance concern, not a correctness one.
+  if (diskPath) {
+    try {
+      unlinkMedia(diskPath);
+    } catch (err) {
+      logger.warn(`Could not unlink ${diskPath} for removed library item ${id}`, err);
+    }
+  }
 }
 
 function persist(actor: User, group: number, snapshot: SourceSnapshot): LibraryItemSummary {
@@ -253,6 +315,13 @@ function snapshotModeFor(articleId: number): SnapshotMode {
   const article = articlesRepository.findById(articleId);
   const project = article ? projectsRepository.findById(article.projectId) : undefined;
   return project?.snapshotMode ?? 'live_link';
+}
+
+/** Defaults to allowed (true) when the article/project cannot be resolved. */
+function finnaAllowNonCommercialFor(articleId: number): boolean {
+  const article = articlesRepository.findById(articleId);
+  const project = article ? projectsRepository.findById(article.projectId) : undefined;
+  return project?.finnaAllowNonCommercial ?? true;
 }
 
 /** The project's languages, minus the one just imported. */

@@ -10,8 +10,12 @@ export const projectsApi = {
     api.put<Project>(`/projects/${slug}/languages`, { languages }),
   setSnapshotMode: (slug: string, snapshotMode: SnapshotMode) =>
     api.put<Project>(`/projects/${slug}/snapshot-mode`, { snapshotMode }),
+  setFinnaAllowNonCommercial: (slug: string, allow: boolean) =>
+    api.put<Project>(`/projects/${slug}/finna-allow-noncommercial`, { allow }),
   listArticles: (slug: string, language?: string) =>
     api.get<Article[]>(`/projects/${slug}/articles${language ? `?language=${language}` : ''}`),
-  createArticle: (slug: string, input: { title: string; bodyMarkdown?: string; language?: string }) =>
-    api.post<Article>(`/projects/${slug}/articles`, input),
+  createArticle: (
+    slug: string,
+    input: { title: string; bodyMarkdown?: string; language?: string; licenseId?: string },
+  ) => api.post<Article>(`/projects/${slug}/articles`, input),
 };

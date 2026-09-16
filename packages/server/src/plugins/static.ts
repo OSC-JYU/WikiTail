@@ -32,13 +32,21 @@ export const staticPlugin: Plugin<undefined> = {
         // the app's own origin. An SVG can carry script, so navigating straight
         // to one would otherwise run it here: sandbox the response and stop the
         // browser sniffing a different type than we declared.
+        //
+        // PDFs are exempted from the `sandbox` directive: the browser's built-in
+        // viewer needs to run its own UI (pagination, zoom) inside the iframe,
+        // and a plain `sandbox` blocks the scripts it uses. `nosniff` still
+        // applies so the file cannot be reinterpreted as something else.
         ext: {
           onPostHandler: {
             method: (request, h) => {
               // Boom errors are Errors; a served file is a ResponseObject.
               const response = request.response;
               if (!(response instanceof Error)) {
-                response.header('Content-Security-Policy', "sandbox; default-src 'none'");
+                const isPdf = /\.pdf$/i.test(String(request.params.param ?? ''));
+                if (!isPdf) {
+                  response.header('Content-Security-Policy', "sandbox; default-src 'none'");
+                }
                 response.header('X-Content-Type-Options', 'nosniff');
               }
               return h.continue;

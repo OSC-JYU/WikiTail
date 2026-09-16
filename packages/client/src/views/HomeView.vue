@@ -9,6 +9,7 @@ const auth = useAuthStore();
 const projects = useProjectsStore();
 
 const newTitle = ref('');
+const newDescription = ref('');
 const creating = ref(false);
 const error = ref<string | null>(null);
 
@@ -56,8 +57,12 @@ async function createProject() {
   creating.value = true;
   error.value = null;
   try {
-    const project = await projects.create({ title: newTitle.value.trim() });
+    const project = await projects.create({
+      title: newTitle.value.trim(),
+      description: newDescription.value.trim() || undefined,
+    });
     newTitle.value = '';
+    newDescription.value = '';
     return project;
   } catch (e) {
     error.value = e instanceof Error ? e.message : 'Failed to create project';
@@ -68,11 +73,21 @@ async function createProject() {
 </script>
 
 <template>
-  <h1>Projects</h1>
+  <p class="crumb">
+    <RouterLink :to="{ name: 'admin-home' }">&larr; Welcome</RouterLink>
+  </p>
 
+  <h1>Admin tools</h1>
+  <p class="hint">
+    Everything on this page is for site admins. Anyone signed in can read published articles and
+    open the projects they're a member of from the welcome page.
+  </p>
+
+  <h2>All projects</h2>
   <ul class="project-list">
     <li v-for="project in projects.projects" :key="project.id">
       <RouterLink :to="{ name: 'project', params: { slug: project.slug } }">{{ project.title }}</RouterLink>
+      <p v-if="project.description" class="project-desc">{{ project.description }}</p>
     </li>
   </ul>
   <p v-if="projects.loaded && projects.projects.length === 0">No projects yet.</p>
@@ -80,6 +95,11 @@ async function createProject() {
   <form v-if="auth.isAdmin" class="new-project" @submit.prevent="createProject">
     <h2>New project</h2>
     <input v-model="newTitle" placeholder="Project title" />
+    <textarea
+      v-model="newDescription"
+      placeholder="Short description — what this project is about (optional)"
+      rows="2"
+    />
     <button type="submit" :disabled="creating">Create</button>
     <p v-if="error" class="error">{{ error }}</p>
   </form>
@@ -132,6 +152,19 @@ async function createProject() {
   padding: 0.5rem;
   margin: 0.5rem 0;
 }
+.new-project textarea {
+  display: block;
+  width: 100%;
+  padding: 0.5rem;
+  margin: 0.5rem 0;
+  font-family: inherit;
+  resize: vertical;
+}
+.project-desc {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin: 0.2rem 0 0;
+}
 .error {
   color: #c0392b;
 }
@@ -169,5 +202,9 @@ async function createProject() {
 .hint {
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+.crumb {
+  font-size: 0.85rem;
+  margin-bottom: 1rem;
 }
 </style>

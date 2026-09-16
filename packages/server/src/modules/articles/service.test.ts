@@ -70,6 +70,42 @@ describe('article languages', () => {
   });
 });
 
+describe('article licence', () => {
+  it('defaults to CC BY', () => {
+    const project = makeProject(['fi']);
+    const article = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
+    expect(article.licenseId).toBe('cc-by-4.0');
+  });
+
+  it('accepts an explicit choice from the same list uploads use', () => {
+    const project = makeProject(['fi']);
+    const article = createArticle(actor, project.id, {
+      title: 'Mylly',
+      bodyMarkdown: '',
+      licenseId: 'cc0-1.0',
+    });
+    expect(article.licenseId).toBe('cc0-1.0');
+  });
+
+  it('refuses an unknown licence id', () => {
+    const project = makeProject(['fi']);
+    expect(() =>
+      createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '', licenseId: 'bogus' }),
+    ).toThrow(/Unknown licence/);
+  });
+
+  it('translations keep the source article licence', () => {
+    const project = makeProject(['fi', 'en']);
+    const fi = createArticle(actor, project.id, {
+      title: 'Mylly',
+      bodyMarkdown: '',
+      licenseId: 'cc-by-sa-4.0',
+    });
+    const en = createTranslation(actor, fi.id, { language: 'en', title: 'Mill', bodyMarkdown: '' });
+    expect(en.licenseId).toBe('cc-by-sa-4.0');
+  });
+});
+
 describe('translations', () => {
   it('joins the source article translation group', () => {
     const project = makeProject(['fi', 'en']);
@@ -111,7 +147,7 @@ describe('resolving a group for a reader', () => {
     const project = makeProject(['fi', 'en']);
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
 
-    const resolved = resolveInLanguage(fi.translationGroupId, 'fi');
+    const resolved = resolveInLanguage(actor, fi.translationGroupId, 'fi');
     expect(resolved.kind).toBe('match');
     expect(resolved.kind === 'match' && resolved.article.id).toBe(fi.id);
   });
@@ -120,7 +156,7 @@ describe('resolving a group for a reader', () => {
     const project = makeProject(['fi', 'en']);
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
 
-    const resolved = resolveInLanguage(fi.translationGroupId, 'en');
+    const resolved = resolveInLanguage(actor, fi.translationGroupId, 'en');
     expect(resolved.kind).toBe('missing');
     expect(resolved.versions.map((v) => v.language)).toEqual(['fi']);
   });
@@ -128,11 +164,11 @@ describe('resolving a group for a reader', () => {
   it('resolves to the translation once one is written', () => {
     const project = makeProject(['fi', 'en']);
     const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
-    expect(resolveInLanguage(fi.translationGroupId, 'en').kind).toBe('missing');
+    expect(resolveInLanguage(actor, fi.translationGroupId, 'en').kind).toBe('missing');
 
     const en = createTranslation(actor, fi.id, { language: 'en', title: 'Mill', bodyMarkdown: '' });
 
-    const resolved = resolveInLanguage(fi.translationGroupId, 'en');
+    const resolved = resolveInLanguage(actor, fi.translationGroupId, 'en');
     expect(resolved.kind).toBe('match');
     expect(resolved.kind === 'match' && resolved.article.id).toBe(en.id);
   });

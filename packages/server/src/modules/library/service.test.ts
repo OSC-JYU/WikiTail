@@ -12,11 +12,12 @@ process.env.UPLOADS_DIR = uploadsDir;
 const { db } = await import('../../db/connection.js');
 const { usersRepository } = await import('../users/repository.js');
 const { projectsRepository } = await import('../projects/repository.js');
-const { createArticle } = await import('../articles/service.js');
+const { createArticle, updateArticle } = await import('../articles/service.js');
 const { libraryRepository } = await import('./repository.js');
-const { updateLibraryItem, uploadToLibrary } = await import('./service.js');
+const { tailRepository } = await import('../tail/repository.js');
+const { removeLibraryItem, updateLibraryItem, uploadToLibrary } = await import('./service.js');
 
-const actor = usersRepository.upsertByEmail('tester@wikitail.local', 'author');
+const actor = usersRepository.upsertByEmail('tester@wikitail.local', 'admin');
 
 function makeArticle() {
   const project = projectsRepository.create({
@@ -54,6 +55,7 @@ function importedItem(translationGroupId: number) {
 }
 
 beforeEach(() => {
+  db.prepare('DELETE FROM tail_entries').run();
   db.prepare('DELETE FROM library_items').run();
   db.prepare('DELETE FROM local_files').run();
   db.prepare('DELETE FROM articles').run();
@@ -117,7 +119,7 @@ describe('uploading your own file', () => {
 describe('editing a library item', () => {
   it('lets the owner caption an imported item', () => {
     const item = importedItem(makeArticle().translationGroupId);
-    const updated = updateLibraryItem(item.id, { description: 'Matti istui tällä kivellä.' });
+    const updated = updateLibraryItem(actor, item.id, { description: 'Matti istui tällä kivellä.' });
     expect(updated.description).toBe('Matti istui tällä kivellä.');
     // The source's own credit is untouched.
     expect(updated.author).toBe('Tiia Monto');
@@ -128,10 +130,10 @@ describe('editing a library item', () => {
   // dressed up as an edit box.
   it('refuses to restate the licence or credit of imported work', () => {
     const item = importedItem(makeArticle().translationGroupId);
-    expect(() => updateLibraryItem(item.id, { licenceId: 'cc0-1.0' })).toThrow(
+    expect(() => updateLibraryItem(actor, item.id, { licenceId: 'cc0-1.0' })).toThrow(
       /keep the title, credit and licence of their source/,
     );
-    expect(() => updateLibraryItem(item.id, { author: 'Me, actually' })).toThrow(
+    expect(() => updateLibraryItem(actor, item.id, { author: 'Me, actually' })).toThrow(
       /keep the title, credit and licence of their source/,
     );
   });
@@ -142,11 +144,69 @@ describe('editing a library item', () => {
       mimeType: 'image/png',
       filename: 'mine.png',
     });
-    const updated = updateLibraryItem(item.id, {
+    const updated = updateLibraryItem(actor, item.id, {
       licenceId: 'cc-by-sa-4.0',
       author: 'Ari Häyrinen',
     });
     expect(updated.licenseName).toBe('CC BY-SA 4.0');
     expect(updated.author).toBe('Ari Häyrinen');
+  });
+});
+
+describe('removing a library item', () => {
+  it('drops an unreferenced item and its file row', async () => {
+    const article = makeArticle();
+    const item = await uploadToLibrary(actor, article.id, {
+      stream: png(),
+      mimeType: 'image/png',
+      filename: 'lonely.png',
+    });
+    // The upload path creates a `local_files` row too, so removal has to clean
+    // both up — an orphan file record would be a bug the user can't see.
+    expect(item.localFileId).not.toBeNull();
+
+    removeLibraryItem(actor, item.id);
+
+    expect(libraryRepository.findById(item.id)).toBeUndefined();
+    expect(db.prepare('SELECT id FROM local_files WHERE id = ?').get(item.localFileId)).toBeUndefined();
+  });
+
+  // Cascading a tail deletion would silently drop someone else's editorial
+  // choice, so the delete refuses and points the reader at what to fix first.
+  it('refuses when the item is still in a tail', () => {
+    const article = makeArticle();
+    const item = importedItem(article.translationGroupId);
+    tailRepository.create({ articleId: article.id, libraryItemId: item.id, commentary: null });
+
+    expect(() => removeLibraryItem(actor, item.id)).toThrow(/still referenced/i);
+    expect(libraryRepository.findById(item.id)).toBeDefined();
+  });
+
+  // The shortcode regex allows an optional `|label`; both shapes must count as
+  // usage, and `[[library:12]]` must not match `[[library:120]]`.
+  it('refuses when the item is embedded in an article body', () => {
+    const article = makeArticle();
+    const item = importedItem(article.translationGroupId);
+    updateArticle(actor, article.id, {
+      title: article.title,
+      bodyMarkdown: `Some intro\n\n[[library:${item.id}|Stone]]\n\nMore text.`,
+      status: article.status,
+    });
+
+    expect(() => removeLibraryItem(actor, item.id)).toThrow(/still referenced/i);
+  });
+
+  it('does not confuse `[[library:12]]` with `[[library:120]]`', () => {
+    const article = makeArticle();
+    const item = importedItem(article.translationGroupId);
+    // A body that only mentions a longer id — the shorter id must not match.
+    updateArticle(actor, article.id, {
+      title: article.title,
+      bodyMarkdown: `Placeholder: [[library:${item.id}9]]`,
+      status: article.status,
+    });
+
+    removeLibraryItem(actor, item.id);
+    expect(libraryRepository.findById(item.id)).toBeUndefined();
   });
 });

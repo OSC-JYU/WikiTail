@@ -3,6 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue';
 import { useI18n } from 'vue-i18n';
 import {
   splitArticleBody,
+  findLicence,
   type BrowseArticle,
   type LibraryItemSummary,
 } from '@wikitail/shared';
@@ -10,10 +11,12 @@ import { publicApi } from '../api/public';
 import { renderMarkdown } from '../lib/markdown';
 import { framableWikiUrl, wikiPageTitle } from '../lib/wikiLinks';
 import { languageName } from '../lib/languageName';
+import { commonsEmbedFor } from '../lib/commonsEmbed';
 import { useAuthStore } from '../stores/auth';
 import LanguageSwitcher from '../components/common/LanguageSwitcher.vue';
 import TailItemCard from '../components/browse/TailItemCard.vue';
 import MediaPreview from '../components/common/MediaPreview.vue';
+import LicenseBadge from '../components/common/LicenseBadge.vue';
 import ItemDialog from '../components/common/ItemDialog.vue';
 
 const props = defineProps<{ project: string; language: string; article: string }>();
@@ -70,6 +73,22 @@ const segments = computed(() => {
 
 const embedFor = (id: number) => data.value?.embeds.find((item) => item.id === id);
 
+/**
+ * Wikipedia (and Wikidata) pages have no individual author and share one
+ * project-wide licence, so citing them inline the same way as a Commons photo
+ * would be noise. They read better as a plain linked page name.
+ */
+const isWikimediaSource = (item: LibraryItemSummary) =>
+  item.sourceType === 'wikipedia' || item.sourceType === 'wikidata';
+
+/**
+ * True when the item has something to render inline — either a local media file
+ * or a Commons audio/video embed. Used to decide whether to draw the media
+ * button in the article body.
+ */
+const hasInlineMedia = (item: LibraryItemSummary) =>
+  Boolean(item.mediaUrl || commonsEmbedFor(item));
+
 /** Published versions other than the one being read. */
 const otherVersions = computed(
   () => data.value?.versions.filter((v) => v.id !== data.value?.article.id) ?? [],
@@ -84,6 +103,10 @@ const missingInLocale = computed(
 );
 
 const projectUsesLocale = computed(() => data.value?.project.languages.includes(locale.value));
+
+const articleLicence = computed(() =>
+  data.value ? findLicence(data.value.article.licenseId) : undefined,
+);
 </script>
 
 <template>
@@ -137,25 +160,60 @@ const projectUsesLocale = computed(() => data.value?.project.languages.includes(
           >
             <MediaPreview :item="embedFor(segment.id)!" />
           </button>
+          <!--
+            Commons audio and video render as an embedded Commons player, which
+            is an iframe and swallows clicks. Rendered without the button
+            wrapper — the label below opens the dialog when the reader wants a
+            larger view.
+          -->
+          <MediaPreview
+            v-else-if="hasInlineMedia(embedFor(segment.id)!)"
+            :item="embedFor(segment.id)!"
+          />
           <figcaption v-if="embedFor(segment.id)!.description" class="caption">
             {{ embedFor(segment.id)!.description }}
           </figcaption>
-          <strong>{{ embedFor(segment.id)!.title }}</strong>
-          <span v-if="embedFor(segment.id)!.language" class="lang">
-            {{ embedFor(segment.id)!.language }}
-          </span>
+          <!--
+            Wikipedia and Wikidata pages have no individual author to credit and
+            share one project-wide licence, so they get a plain link on the name.
+            `onBodyClick` above intercepts Wikimedia hrefs and opens them framed
+            in place, so the reader still stays on the page.
+          -->
           <a
-            v-if="embedFor(segment.id)!.externalUrl"
+            v-if="isWikimediaSource(embedFor(segment.id)!) && embedFor(segment.id)!.externalUrl"
+            class="label-link"
             :href="embedFor(segment.id)!.externalUrl!"
             target="_blank"
             rel="noopener noreferrer"
           >
-            {{ $t('browse.viewSource') }}
+            {{ segment.label ?? embedFor(segment.id)!.title }}
           </a>
+          <!--
+            Everything else (Commons media, Finna records, uploads) has a real
+            author and licence. The label opens the item dialog; LicenseBadge
+            handles the credit line.
+          -->
+          <template v-else>
+            <button class="label-button" @click="viewing = embedFor(segment.id)!">
+              {{ segment.label ?? embedFor(segment.id)!.title }}
+            </button>
+            <span v-if="embedFor(segment.id)!.language" class="lang">
+              {{ embedFor(segment.id)!.language }}
+            </span>
+            <LicenseBadge :item="embedFor(segment.id)!" />
+          </template>
         </figure>
         <p v-else-if="segment.label" class="missing-embed">{{ segment.label }}</p>
       </template>
     </article>
+
+    <p v-if="articleLicence" class="article-licence">
+      {{ $t('browse.articleLicence') }}
+      <a v-if="articleLicence.url" :href="articleLicence.url" target="_blank" rel="noopener noreferrer">
+        {{ articleLicence.name }}
+      </a>
+      <span v-else>{{ articleLicence.name }}</span>
+    </p>
 
     <nav v-if="otherVersions.length" class="versions">
       <RouterLink
@@ -237,6 +295,11 @@ h1 {
 }
 .body {
   line-height: 1.65;
+  background: var(--surface, color-mix(in srgb, var(--text) 3%, transparent));
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 1rem 1.1rem;
+  margin: 1rem 0 0.5rem;
 }
 .prose :deep(img) {
   max-width: 100%;
@@ -256,7 +319,8 @@ h1 {
   margin: 1rem 0;
   padding: 0.6rem 0.8rem;
   border-left: 3px solid var(--border);
-  background: color-mix(in srgb, var(--text) 4%, transparent);
+  background: color-mix(in srgb, var(--text) 5%, transparent);
+  border-radius: 0 6px 6px 0;
   font-size: 0.95rem;
 }
 .missing-embed {
@@ -269,6 +333,36 @@ h1 {
   border: none;
   background: none;
   cursor: zoom-in;
+}
+/*
+ * Author's link label. Presented as an inline text link — it reads as the
+ * caption of the embed, not a big button.
+ */
+.label-button {
+  padding: 0;
+  border: none;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 600;
+  text-decoration: underline;
+  cursor: pointer;
+  text-align: left;
+}
+.label-button:hover {
+  color: var(--link, inherit);
+}
+/*
+ * Wikimedia embed name — same visual weight as `.label-button` but a normal
+ * anchor, since there is no dialog to open and the reader wants the page.
+ */
+.label-link {
+  font-weight: 600;
+  text-decoration: underline;
+}
+.embed :deep(.license) {
+  flex-basis: 100%;
+  margin-top: 0.3rem;
 }
 .caption {
   flex-basis: 100%;
@@ -292,10 +386,29 @@ h1 {
   padding-top: 0.75rem;
   margin-top: 1.5rem;
 }
+.article-licence {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  margin-top: 1rem;
+}
+.article-licence a {
+  color: inherit;
+}
+/*
+ * Tail sits after the article as a related-material section. A heavier top
+ * rule and a small-caps heading mark the seam so a reader can see where the
+ * article ends and the sources begin.
+ */
 .tail {
-  margin-top: 2rem;
+  margin-top: 2.5rem;
+  padding-top: 1.5rem;
+  border-top: 2px solid var(--border);
 }
 .tail h2 {
-  font-size: 1.1rem;
+  font-size: 0.85rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+  margin: 0 0 1rem;
 }
 </style>

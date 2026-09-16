@@ -7,6 +7,13 @@
     "viewPublished": "View published",
     "draftNotPublic": "Draft — not public yet"
   },
+  "auth": {
+    "deniedTitle": "You do not have access to Wikitail",
+    "deniedBody": "You are signed in, but your account has not been added yet. Ask an administrator to invite you.",
+    "expiredTitle": "Your session has expired",
+    "expiredBody": "You have been signed out after a period of inactivity. Please sign in again to continue.",
+    "expiredReload": "Reload and sign in"
+  },
   "projects": {
     "title": "Projects",
     "empty": "No projects yet.",
@@ -16,6 +23,7 @@
     "readArticle": "Read",
     "noPublished": "Nothing published here yet.",
     "tailHeading": "More on this",
+    "articleLicence": "Licensed under",
     "showSnapshot": "Show saved copy",
     "hideSnapshot": "Hide saved copy",
     "viewSource": "View source",
@@ -40,12 +48,87 @@
     "licence": "Licence",
     "addDescription": "Add a description…"
   },
+  "library": {
+    "remove": "Remove",
+    "removeTitle": "Remove from library",
+    "confirmRemove": "Remove \"{title}\" from the library? This cannot be undone.",
+    "removeFailed": "Could not remove:"
+  },
   "dialog": {
     "close": "Close",
-    "view": "View"
+    "view": "View",
+    "externalHint": "This source does not allow embedding. Opens in a new tab."
   },
   "finna": {
     "searchPlaceholder": "Search Finna — archives, libraries and museums…",
-    "hint": "Each result shows its rights status. Freely licensed files are copied into this article’s library; restricted ones are kept as a link to Finna."
+    "hint": "Each result shows its rights status. Freely licensed files are copied into this article’s library; restricted ones are kept as a link to Finna.",
+    "search": "Search",
+    "searching": "Searching…",
+    "import": "Import",
+    "importing": "Importing…",
+    "inLibrary": "In library",
+    "noResults": "No results.",
+    "loadMore": "Load more",
+    "loadingMore": "Loading…",
+    "searchIn": "Search in",
+    "type": {
+      "image": "Images",
+      "audio": "Audio",
+      "video": "Video",
+      "text": "Fulltext"
+    }
+  },
+  "commons": {
+    "searchPlaceholder": "Search Wikimedia Commons…",
+    "hint": "Importing downloads the file into this article’s library, so it is served from here rather than hotlinked.",
+    "search": "Search",
+    "searching": "Searching…",
+    "import": "Import",
+    "importing": "Importing…",
+    "inLibrary": "In library",
+    "noResults": "No results.",
+    "loadMore": "Load more",
+    "loadingMore": "Loading…",
+    "searchIn": "Search in",
+    "type": {
+      "image": "Images",
+      "audio": "Audio",
+      "video": "Video"
+    }
+  },
+  "welcome": {
+    "greeting": "Welcome",
+    "greetingNamed": "Welcome, {name}",
+    "intro": "Wikitail is a small tool for writing articles and grounding them in sources you pick — pages from Wikipedia, images from Wikimedia Commons, records from Finna. Each article keeps a tail: a curated list of the material it draws on, with your own notes on why each piece is there. When an article is published it becomes part of the site anyone signed in can read.",
+    "helpLink": "How Wikitail works →",
+    "yourProjects": "Your projects",
+    "empty": "You are not part of any project yet. A project manager can add you — ask whoever runs your site to get in touch.",
+    "manageLink": "Manage projects and people →",
+    "loadError": "Could not load your projects"
+  },
+  "help": {
+    "back": "← Back",
+    "title": "How Wikitail works",
+    "projectsHeading": "Projects, articles, and tails",
+    "projectsBody1": "A project is a small collection of articles about a shared subject — a course, a research theme, an exhibition. Every article belongs to one project, and every project has one or more languages it publishes in.",
+    "projectsBody2": "An article is a piece of writing you author here. Alongside its text it carries a tail: a hand-picked list of pages, images, or records from outside sources that supported the writing, each with a short note from you on why it is there. Readers see the article, then the tail; the tail is the citation and the recommendation at once.",
+    "draftHeading": "Draft and published",
+    "draftBody": "A new article starts as a draft — only members of its project can see it while it takes shape. Setting the status to published makes it visible to anyone signed in to Wikitail. Publishing does not lock the article; you can keep editing, and the newest version is what readers see.",
+    "libraryHeading": "The library",
+    "libraryBody1": "The article library is where you gather source material. You can search Wikipedia and Wikidata for background, Wikimedia Commons for freely licensed media, and Finna for material from Finnish archives and museums. You can also upload your own files with a licence you pick. Each imported item is stored with its credit and licence, and can be added to a tail with a single click.",
+    "libraryBody2": "Wikipedia articles are handled two ways at project level: live links keep only enough to point at the current page, and hard copies also keep the text as it read when it was imported. Media is always copied either way, so readers do not hotlink to Commons.",
+    "languagesHeading": "Languages and translations",
+    "languagesBody": "A project declares which languages it uses. When you translate an article, the two language versions stay linked: readers switching language stay on the same subject, and importing a Commons image in one language quietly pulls in its Wikipedia caption in every other project language.",
+    "rolesHeading": "Who can do what",
+    "rolesReader": "Reader — anyone signed in. Can read published articles.",
+    "rolesEditor": "Editor of a project — can write and edit articles, curate tails, and upload files in that project. Cannot change project settings.",
+    "rolesManager": "Manager of a project — everything an editor can do, plus change languages, publishing mode, and add or remove members.",
+    "rolesAdmin": "Admin of the site — can do everything on every project, and add new projects and users from the admin tools page.",
+    "startHeading": "Getting started",
+    "start1": "Open a project from the welcome page.",
+    "start2": "Create a new article, or open an existing one to edit it.",
+    "start3": "In the editor, use the source tabs on the right to import background material and media into the article library.",
+    "start4": "Drop a library item into the article body with a shortcode, or add it to the tail with your own comment on why it belongs there.",
+    "start5": "When it is ready, change the status to published."
   }
 }

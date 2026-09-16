@@ -1,0 +1,10 @@
+# Wikitail — uploads volume.
+#
+# Deployed to /etc/containers/systemd/wikitail-uploads.volume. Same shape as
+# wikitail-data.volume.
+
+[Unit]
+Description=Wikitail uploads volume
+
+[Volume]
+VolumeName=wikitail-uploads

@@ -16,10 +16,16 @@ const EXTENSIONS: Record<string, string> = {
   'audio/mpeg': 'mp3',
   'audio/ogg': 'ogg',
   'audio/wav': 'wav',
+  // Some browsers/OSes report WAV as the legacy, non-standard 'audio/x-wav'
+  // instead of the registered 'audio/wav' — accepted as the same extension.
+  'audio/x-wav': 'wav',
   'audio/flac': 'flac',
   'video/mp4': 'mp4',
   'video/webm': 'webm',
   'video/ogg': 'ogv',
+  // .ogx is Ogg's generic container — used when a file mixes codecs (e.g.
+  // Vorbis audio + Theora video) so neither audio/ogg nor video/ogg fits.
+  'application/ogg': 'ogx',
   'application/pdf': 'pdf',
 };
 
@@ -36,10 +42,12 @@ const UPLOADABLE = new Set([
   'audio/mpeg',
   'audio/ogg',
   'audio/wav',
+  'audio/x-wav',
   'audio/flac',
   'video/mp4',
   'video/webm',
   'video/ogg',
+  'application/ogg',
   'application/pdf',
 ]);
 
@@ -55,6 +63,10 @@ export function kindFor(mimeType: string): LocalFileKind {
   if (mimeType.startsWith('image/')) return 'image';
   if (mimeType.startsWith('audio/')) return 'audio';
   if (mimeType.startsWith('video/')) return 'video';
+  // .ogx has no audio/video prefix to go on — its container can hold either.
+  // Treated as video so it gets a player with visual controls rather than the
+  // audio-only bar, since an Ogg file mixing codecs usually has a video track.
+  if (mimeType === 'application/ogg') return 'video';
   return 'other';
 }
 
@@ -107,4 +119,14 @@ export async function writeMediaStream(
 
 export function mediaUrl(diskPath: string): string {
   return `/uploads/${diskPath.split(path.sep).join('/')}`;
+}
+
+/**
+ * Removes a file previously written by `writeMedia` / `writeMediaStream`.
+ * Missing files are ignored so a partially-deleted item can still finish its
+ * cleanup — the point is to leave nothing orphaned on disk, not to catch a
+ * race someone else already handled.
+ */
+export function unlinkMedia(diskPath: string): void {
+  fs.rmSync(path.join(config.uploadsDir, diskPath), { force: true });
 }

@@ -9,6 +9,36 @@ export interface User {
 }
 
 /**
+ * Project-scoped role, distinct from `UserRole`. Global admins bypass this
+ * entirely — they can edit and manage any project without appearing in
+ * `project_members`.
+ */
+export type ProjectMemberRole = 'editor' | 'manager';
+
+export interface ProjectMember {
+  userId: number;
+  email: string;
+  displayName: string | null;
+  role: ProjectMemberRole;
+  createdAt: string;
+}
+
+/**
+ * Outcome of a batch add: emails are partitioned so the UI can show what
+ * actually happened rather than a single "done" message. Order within each
+ * bucket matches the input order.
+ */
+export interface BatchAddMembersResult {
+  added: ProjectMember[];
+  /** Emails that had no user yet — a new `author` row was created for each. */
+  createdUsers: string[];
+  /** Emails that were already members of this project. */
+  alreadyMembers: string[];
+  /** Malformed entries — kept so the user can fix them and retry. */
+  invalid: string[];
+}
+
+/**
  * Whether imported articles are copied here or only linked to. Media is always
  * copied either way — that is about not hotlinking, not about archiving text.
  */
@@ -23,8 +53,23 @@ export interface Project {
   /** Declared content languages, ordered; the first is the project's primary. */
   languages: string[];
   snapshotMode: SnapshotMode;
+  /**
+   * Whether importing a Finna item under a NonCommercial licence (CC BY-NC*)
+   * copies the file into the library, rather than only linking to it. True by
+   * default — a project that is run commercially can turn it off.
+   */
+  finnaAllowNonCommercial: boolean;
   createdBy: number;
   createdAt: string;
+}
+
+/**
+ * A project the current user has some access to, tagged with the role they hold
+ * on it. `admin` is granted implicitly to global admins even without a
+ * membership row.
+ */
+export interface MyProject extends Project {
+  myRole: 'admin' | ProjectMemberRole;
 }
 
 export type ArticleStatus = 'draft' | 'published';
@@ -39,6 +84,8 @@ export interface Article {
   translationGroupId: number;
   bodyMarkdown: string;
   status: ArticleStatus;
+  /** One of UPLOAD_LICENCES' ids (see licences.ts) — chosen when the article is created. */
+  licenseId: string;
   createdBy: number;
   createdAt: string;
   updatedAt: string;
@@ -161,7 +208,33 @@ export interface SourceSearchResult {
   thumbnailUrl?: string;
   sourceType: SourceType;
   language?: string;
+  /** Human-readable format label as reported by the source, e.g. "Photograph", "Book". */
+  format?: string;
 }
+
+/**
+ * One page of search results plus whether the source says there is more to
+ * fetch. Callers page by requesting the next `limit` starting at `offset`
+ * equal to the number of results they already have; `hasMore` is false when
+ * the source has run out of matches or does not report a total.
+ */
+export interface SourceSearchPage {
+  results: SourceSearchResult[];
+  hasMore: boolean;
+}
+
+/**
+ * Media kinds a Finna search can be scoped to. `text` maps to Finna's `Text`
+ * facet (books, articles, PDFs and other written material).
+ */
+export type FinnaMediaKind = 'image' | 'audio' | 'video' | 'text';
+
+/**
+ * Media kinds a Commons search can be scoped to. Maps to CirrusSearch's
+ * `filetype:` keyword — images are bitmap+drawing, audio and video are their
+ * own top-level kinds. Commons has no text-search facet.
+ */
+export type CommonsMediaKind = 'image' | 'audio' | 'video';
 
 /** Fetched content from a source adapter, ready to persist as a LibraryItem. */
 export interface SourceSnapshot {

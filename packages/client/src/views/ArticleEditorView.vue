@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref, watch } from 'vue';
+import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
 import { useRouter } from 'vue-router';
 import { libraryShortcode, type Article, type ArticleVersion, type Project } from '@wikitail/shared';
 import { articlesApi } from '../api/articles';
@@ -13,21 +13,31 @@ import LocalTab from '../components/editor/LocalTab.vue';
 import FinnaTab from '../components/editor/FinnaTab.vue';
 import TailEditor from '../components/editor/TailEditor.vue';
 import ArticlePreview from '../components/editor/ArticlePreview.vue';
+import MarkdownHelp from '../components/editor/MarkdownHelp.vue';
 
 const props = defineProps<{ slug: string; id: string }>();
 const router = useRouter();
 const library = useLibraryStore();
 
-const tabs = [
-  'Article',
-  'Wiki world',
-  'Commons',
-  'Finna',
-  'Local',
-  'Article library',
-  'Tail',
-] as const;
-const activeTab = ref<(typeof tabs)[number]>('Article');
+// Core tabs — the article and what belongs to it — are the ones an author moves
+// between while writing. The source tabs on the other side of the separator
+// are where material is *brought in* from; grouping them apart makes that
+// distinction visible in the tab bar itself.
+type Tab =
+  | 'Article'
+  | 'Article library'
+  | 'Tail'
+  | 'Wiki world'
+  | 'Commons'
+  | 'Finna'
+  | 'Local';
+const coreTabs: readonly Tab[] = ['Article', 'Article library', 'Tail'];
+const sourceTabs: readonly Tab[] = ['Wiki world', 'Commons', 'Finna', 'Local'];
+const activeTab = ref<Tab>('Article');
+
+/** Side-drawer that shows the article library next to the editor while writing. */
+const libraryDrawerOpen = ref(false);
+const bodyRef = useTemplateRef<HTMLTextAreaElement>('body');
 
 const article = ref<Article | null>(null);
 const project = ref<Project | null>(null);
@@ -59,15 +69,46 @@ watch(() => props.id, (id) => load(Number(id)));
  * Appends a shortcode so the item renders inline in the article body. The label
  * is what makes the raw markdown readable, and what survives if the library row
  * is ever lost — the external id says more than a title where there is one.
+ *
+ * When the Article tab is active, the shortcode is inserted at the textarea's
+ * cursor position so the flow of writing is not interrupted; from elsewhere
+ * (like the Article library tab) there is no cursor to honour, and it is
+ * appended at the end as before.
  */
 function insertLibraryRef(libraryItemId: number) {
   if (!article.value) return;
   const item = library.items.find((candidate) => candidate.id === libraryItemId);
+  const shortcode = libraryShortcode(libraryItemId, item?.externalId ?? item?.title);
   const body = article.value.bodyMarkdown;
+  const textarea = bodyRef.value;
+
+  // Embeds are block-level (see splitArticleBody), so the shortcode needs blank
+  // lines around it or markdown will fold it into the surrounding paragraph.
+  if (activeTab.value === 'Article' && textarea) {
+    const start = textarea.selectionStart;
+    const end = textarea.selectionEnd;
+    const before = body.slice(0, start);
+    const after = body.slice(end);
+    const leading =
+      before.length === 0 || before.endsWith('\n\n')
+        ? ''
+        : before.endsWith('\n')
+          ? '\n'
+          : '\n\n';
+    const trailing =
+      after.length === 0 ? '\n' : after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
+    const insertion = `${leading}${shortcode}${trailing}`;
+    article.value.bodyMarkdown = before + insertion + after;
+    const cursor = before.length + insertion.length;
+    nextTick(() => {
+      textarea.focus();
+      textarea.setSelectionRange(cursor, cursor);
+    });
+    return;
+  }
+
   article.value.bodyMarkdown =
-    (body.trim() ? `${body.replace(/\s+$/, '')}\n\n` : '') +
-    libraryShortcode(libraryItemId, item?.externalId ?? item?.title) +
-    '\n';
+    (body.trim() ? `${body.replace(/\s+$/, '')}\n\n` : '') + shortcode + '\n';
   activeTab.value = 'Article';
 }
 
@@ -174,8 +215,19 @@ async function save(status: 'draft' | 'published') {
 
     <nav class="tabs">
       <button
-        v-for="tab in tabs"
+        v-for="tab in coreTabs"
         :key="tab"
+        class="tab core"
+        :class="{ active: activeTab === tab }"
+        @click="activeTab = tab"
+      >
+        {{ tab }}
+      </button>
+      <span class="tab-separator" aria-hidden="true" />
+      <button
+        v-for="tab in sourceTabs"
+        :key="tab"
+        class="tab source"
         :class="{ active: activeTab === tab }"
         @click="activeTab = tab"
       >
@@ -184,14 +236,43 @@ async function save(status: 'draft' | 'published') {
     </nav>
 
     <section v-show="activeTab === 'Article'">
-      <div class="editor-split">
+      <div class="editor-toolbar">
+        <button
+          type="button"
+          class="drawer-toggle"
+          :class="{ open: libraryDrawerOpen }"
+          @click="libraryDrawerOpen = !libraryDrawerOpen"
+        >
+          {{ libraryDrawerOpen ? 'Hide library' : 'Show library' }}
+        </button>
+        <span v-if="libraryDrawerOpen" class="drawer-hint">
+          Click Insert on any item to drop it at your cursor.
+        </span>
+        <MarkdownHelp />
+      </div>
+      <div class="editor-split" :class="{ 'with-drawer': libraryDrawerOpen }">
         <textarea
+          ref="body"
           v-model="article.bodyMarkdown"
           class="body-input"
           rows="18"
           placeholder="Write in markdown… use [[library:N]] to embed library content"
         />
         <ArticlePreview :body="article.bodyMarkdown" />
+        <aside v-if="libraryDrawerOpen" class="library-drawer">
+          <div class="drawer-head">
+            <h3>Article library</h3>
+            <button
+              type="button"
+              class="drawer-close"
+              title="Close library"
+              @click="libraryDrawerOpen = false"
+            >
+              ×
+            </button>
+          </div>
+          <MyLibraryTab @insert="insertLibraryRef" />
+        </aside>
       </div>
       <div class="actions">
         <button :disabled="saving" @click="save('draft')">Save draft</button>
@@ -315,20 +396,57 @@ async function save(status: 'draft' | 'published') {
 .tabs {
   display: flex;
   gap: 0.25rem;
+  align-items: stretch;
   border-bottom: 1px solid var(--border);
   margin-bottom: 1rem;
+  flex-wrap: wrap;
 }
-.tabs button {
+.tabs .tab {
   background: none;
   border: none;
   border-bottom: 2px solid transparent;
   color: var(--text-muted);
   padding: 0.5rem 0.75rem;
 }
-.tabs button.active {
+.tabs .tab.active {
   color: var(--text);
   border-bottom-color: currentColor;
   font-weight: 500;
+}
+/* Source tabs (Wiki world, Commons, Finna, Local) are the *bringing in* tools,
+   set slightly apart from the article/library/tail group so the tab bar reads
+   as two intents rather than one flat list. */
+.tabs .tab.source {
+  font-size: 0.9rem;
+  opacity: 0.85;
+}
+.tab-separator {
+  display: inline-block;
+  width: 1px;
+  align-self: stretch;
+  background: var(--border);
+  margin: 0.35rem 0.5rem;
+}
+.editor-toolbar {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+  flex-wrap: wrap;
+}
+.editor-toolbar :deep(.markdown-help) {
+  margin-left: auto;
+}
+.drawer-toggle {
+  font-size: 0.85rem;
+  padding: 0.25rem 0.6rem;
+}
+.drawer-toggle.open {
+  font-weight: 600;
+}
+.drawer-hint {
+  font-size: 0.8rem;
+  color: var(--text-muted);
 }
 .editor-split {
   display: grid;
@@ -336,10 +454,44 @@ async function save(status: 'draft' | 'published') {
   gap: 0.75rem;
   align-items: start;
 }
+.editor-split.with-drawer {
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr) minmax(0, 1fr);
+}
+@media (max-width: 960px) {
+  .editor-split.with-drawer {
+    grid-template-columns: 1fr;
+  }
+}
 @media (max-width: 720px) {
   .editor-split {
     grid-template-columns: 1fr;
   }
+}
+.library-drawer {
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 0.5rem 0.75rem;
+  max-height: 32rem;
+  overflow: auto;
+}
+.drawer-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin: 0 0 0.5rem;
+}
+.drawer-head h3 {
+  margin: 0;
+  font-size: 0.95rem;
+}
+.drawer-close {
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font-size: 1.2rem;
+  line-height: 1;
+  padding: 0.1rem 0.4rem;
 }
 .body-input {
   display: block;

@@ -3,6 +3,7 @@ import { computed } from 'vue';
 import { splitArticleBody } from '@wikitail/shared';
 import { useLibraryStore } from '../../stores/library';
 import { renderMarkdown } from '../../lib/markdown';
+import { commonsEmbedFor } from '../../lib/commonsEmbed';
 import MediaPreview from '../common/MediaPreview.vue';
 
 const props = defineProps<{ body: string }>();
@@ -28,7 +29,15 @@ const segments = computed(() =>
       <!-- Rendered from author markdown with html:false, so no raw HTML passes through. -->
       <div v-if="segment.kind === 'html'" class="prose" v-html="segment.html" />
       <div v-else-if="segment.item" class="embed">
-        <MediaPreview v-if="segment.item.mediaUrl" :item="segment.item" />
+        <!--
+          Show the media whenever there is something to show — a stored file or
+          a Commons audio/video embed player. Otherwise fall through to just the
+          title and source link, which is what happens for wiki-page items.
+        -->
+        <MediaPreview
+          v-if="segment.item.mediaUrl || commonsEmbedFor(segment.item)"
+          :item="segment.item"
+        />
         <strong>{{ segment.item.title }}</strong>
         <span v-if="segment.item.language" class="lang">{{ segment.item.language }}</span>
         <a

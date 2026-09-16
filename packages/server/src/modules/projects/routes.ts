@@ -1,12 +1,15 @@
 import type { Plugin, Server } from '@hapi/hapi';
 import Joi from 'joi';
 import type { SnapshotMode, User } from '@wikitail/shared';
+import { MAX_CUSTOM_CSS_LENGTH, PROJECT_STYLES } from '@wikitail/shared';
 import {
   createProject,
   getProjectBySlug,
   listProjects,
   setFinnaAllowNonCommercial,
+  setProjectCustomCss,
   setProjectLanguages,
+  setProjectStyle,
   setSnapshotMode,
 } from './service.js';
 
@@ -102,6 +105,48 @@ export const projectsRoutesPlugin: Plugin<undefined> = {
         const actor = request.auth.credentials as unknown as User;
         const { languages } = request.payload as { languages: string[] };
         return setProjectLanguages(actor, request.params.slug as string, languages);
+      },
+    });
+
+    server.route({
+      method: 'PUT',
+      path: '/api/projects/{slug}/style',
+      options: {
+        validate: {
+          payload: Joi.object({
+            styleId: Joi.string()
+              .valid(...PROJECT_STYLES.map((s) => s.id))
+              .required(),
+          }),
+        },
+      },
+      handler: (request) => {
+        const { styleId } = request.payload as { styleId: string };
+        return setProjectStyle(
+          request.auth.credentials as unknown as User,
+          request.params.slug as string,
+          styleId,
+        );
+      },
+    });
+
+    server.route({
+      method: 'PUT',
+      path: '/api/projects/{slug}/custom-css',
+      options: {
+        validate: {
+          payload: Joi.object({
+            css: Joi.string().allow('').max(MAX_CUSTOM_CSS_LENGTH).allow(null).optional(),
+          }),
+        },
+      },
+      handler: (request) => {
+        const { css } = request.payload as { css?: string | null };
+        return setProjectCustomCss(
+          request.auth.credentials as unknown as User,
+          request.params.slug as string,
+          css ?? null,
+        );
       },
     });
   },

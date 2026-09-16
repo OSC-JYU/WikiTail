@@ -12,6 +12,7 @@ import { renderMarkdown } from '../lib/markdown';
 import { framableWikiUrl, wikiPageTitle } from '../lib/wikiLinks';
 import { languageName } from '../lib/languageName';
 import { commonsEmbedFor } from '../lib/commonsEmbed';
+import { useProjectStyle } from '../lib/projectStyle';
 import { useAuthStore } from '../stores/auth';
 import LanguageSwitcher from '../components/common/LanguageSwitcher.vue';
 import TailItemCard from '../components/browse/TailItemCard.vue';
@@ -27,6 +28,8 @@ const data = ref<BrowseArticle | null>(null);
 const notFound = ref(false);
 const viewing = ref<LibraryItemSummary | null>(null);
 const viewingPage = ref<{ title: string; url: string } | null>(null);
+
+useProjectStyle(computed(() => data.value?.project));
 
 /**
  * A Wikipedia link in the article text opens in place rather than in a new tab:
@@ -112,7 +115,7 @@ const articleLicence = computed(() =>
 <template>
   <div v-if="notFound"><p>404</p></div>
 
-  <div v-else-if="data" class="feed">
+  <div v-else-if="data" class="feed" :data-project-style="data.project.styleId">
     <nav class="crumbs">
       <RouterLink :to="{ name: 'browse-project', params: { project } }" class="back">
         {{ $t('nav.backToProject') }}

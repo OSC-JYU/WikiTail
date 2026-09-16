@@ -9,6 +9,8 @@ interface ProjectRow {
   main_article_id: number | null;
   snapshot_mode: SnapshotMode;
   finna_allow_noncommercial: 0 | 1;
+  style_id: string;
+  custom_css: string | null;
   created_by: number;
   created_at: string;
 }
@@ -26,6 +28,8 @@ function toProject(row: ProjectRow): Project {
     mainArticleId: row.main_article_id,
     snapshotMode: row.snapshot_mode,
     finnaAllowNonCommercial: Boolean(row.finna_allow_noncommercial),
+    styleId: row.style_id,
+    customCss: row.custom_css,
     languages: (languagesStmt.all(row.id) as { language: string }[]).map((r) => r.language),
     createdBy: row.created_by,
     createdAt: row.created_at,
@@ -49,6 +53,8 @@ const setSnapshotModeStmt = db.prepare('UPDATE projects SET snapshot_mode = ? WH
 const setFinnaAllowNonCommercialStmt = db.prepare(
   'UPDATE projects SET finna_allow_noncommercial = ? WHERE id = ?',
 );
+const setStyleStmt = db.prepare('UPDATE projects SET style_id = ? WHERE id = ?');
+const setCustomCssStmt = db.prepare('UPDATE projects SET custom_css = ? WHERE id = ?');
 const deleteLanguagesStmt = db.prepare('DELETE FROM project_languages WHERE project_id = ?');
 const insertLanguageStmt = db.prepare(
   'INSERT INTO project_languages (project_id, language, position) VALUES (?, ?, ?)',
@@ -111,6 +117,16 @@ export const projectsRepository = {
 
   setFinnaAllowNonCommercial(id: number, allow: boolean): Project {
     setFinnaAllowNonCommercialStmt.run(allow ? 1 : 0, id);
+    return this.findById(id)!;
+  },
+
+  setStyle(id: number, styleId: string): Project {
+    setStyleStmt.run(styleId, id);
+    return this.findById(id)!;
+  },
+
+  setCustomCss(id: number, css: string | null): Project {
+    setCustomCssStmt.run(css, id);
     return this.findById(id)!;
   },
 

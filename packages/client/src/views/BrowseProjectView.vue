@@ -5,6 +5,7 @@ import type { BrowseListing, Project } from '@wikitail/shared';
 import { publicApi } from '../api/public';
 import LanguageSwitcher from '../components/common/LanguageSwitcher.vue';
 import { languageName } from '../lib/languageName';
+import { useProjectStyle } from '../lib/projectStyle';
 
 const props = defineProps<{ project: string }>();
 const { locale } = useI18n();
@@ -12,6 +13,8 @@ const { locale } = useI18n();
 const project = ref<Project | null>(null);
 const listings = ref<BrowseListing[]>([]);
 const loaded = ref(false);
+
+useProjectStyle(project);
 
 /**
  * The reader's interface language selects content, but a project need not use it —
@@ -34,7 +37,7 @@ watch(locale, load);
 </script>
 
 <template>
-  <div v-if="project">
+  <div v-if="project" :data-project-style="project.styleId">
     <RouterLink to="/" class="back">{{ $t('nav.backToProjects') }}</RouterLink>
 
     <div class="head">

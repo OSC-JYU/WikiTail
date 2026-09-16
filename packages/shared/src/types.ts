@@ -59,6 +59,10 @@ export interface Project {
    * default — a project that is run commercially can turn it off.
    */
   finnaAllowNonCommercial: boolean;
+  /** Id of one of `PROJECT_STYLES` — which base style is applied to this project's articles. */
+  styleId: string;
+  /** Manager-authored CSS layered on top of the chosen style preset. Null when unset. */
+  customCss: string | null;
   createdBy: number;
   createdAt: string;
 }

@@ -1,5 +1,6 @@
 import Boom from '@hapi/boom';
 import type { MyProject, Project, SnapshotMode, User } from '@wikitail/shared';
+import { isProjectStyle, MAX_CUSTOM_CSS_LENGTH } from '@wikitail/shared';
 import { config } from '../../config.js';
 import { forbidden, notFound } from '../../lib/errors.js';
 import { slugify } from '../../lib/slug.js';
@@ -101,6 +102,33 @@ export function setFinnaAllowNonCommercial(actor: User, slug: string, allow: boo
   const project = getProjectBySlug(slug);
   assertCanManage(actor, project.id);
   return projectsRepository.setFinnaAllowNonCommercial(project.id, allow);
+}
+
+/**
+ * The preset id is validated against `PROJECT_STYLES` rather than a DB
+ * constraint, so adding a new preset is a client-only change.
+ */
+export function setProjectStyle(actor: User, slug: string, styleId: string): Project {
+  const project = getProjectBySlug(slug);
+  assertCanManage(actor, project.id);
+  if (!isProjectStyle(styleId)) {
+    throw Boom.badRequest(`Unknown style: ${styleId}`);
+  }
+  return projectsRepository.setStyle(project.id, styleId);
+}
+
+/**
+ * Layered on top of the chosen style preset for readers of this project's
+ * articles. `null`/empty clears it back to just the preset.
+ */
+export function setProjectCustomCss(actor: User, slug: string, css: string | null): Project {
+  const project = getProjectBySlug(slug);
+  assertCanManage(actor, project.id);
+  const trimmed = css?.trim() || null;
+  if (trimmed && trimmed.length > MAX_CUSTOM_CSS_LENGTH) {
+    throw Boom.badRequest(`Custom CSS is too long (max ${MAX_CUSTOM_CSS_LENGTH} characters)`);
+  }
+  return projectsRepository.setCustomCss(project.id, trimmed);
 }
 
 export function assertLanguageAllowed(project: Project, language: string): void {

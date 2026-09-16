@@ -2,7 +2,7 @@
 import { computed, onMounted, ref } from 'vue';
 import { useRouter } from 'vue-router';
 import type { Article, Project, ProjectMember, SnapshotMode } from '@wikitail/shared';
-import { DEFAULT_UPLOAD_LICENCE, UPLOAD_LICENCES } from '@wikitail/shared';
+import { DEFAULT_UPLOAD_LICENCE, PROJECT_STYLES, UPLOAD_LICENCES } from '@wikitail/shared';
 import { membersApi } from '../api/members';
 import { projectsApi } from '../api/projects';
 import { useAuthStore } from '../stores/auth';
@@ -22,6 +22,9 @@ const languageInput = ref('');
 const savingLanguages = ref(false);
 const savingMode = ref(false);
 const savingFinnaSetting = ref(false);
+const savingStyle = ref(false);
+const customCssDraft = ref('');
+const savingCustomCss = ref(false);
 const error = ref<string | null>(null);
 
 /**
@@ -42,6 +45,7 @@ async function load() {
   articles.value = await projectsApi.listArticles(props.slug);
   newLanguage.value = project.value.languages[0] ?? '';
   languageInput.value = project.value.languages.join(', ');
+  customCssDraft.value = project.value.customCss ?? '';
   // Members endpoint is scoped to admins + members; non-members get 403.
   // Swallow it — the UI just doesn't show member-only controls.
   try {
@@ -93,6 +97,41 @@ async function setFinnaAllowNonCommercial(allow: boolean) {
     error.value = e instanceof Error ? e.message : 'Could not change that setting';
   } finally {
     savingFinnaSetting.value = false;
+  }
+}
+
+async function setStyle(styleId: string) {
+  savingStyle.value = true;
+  error.value = null;
+  try {
+    project.value = await projectsApi.setStyle(props.slug, styleId);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Could not change that setting';
+  } finally {
+    savingStyle.value = false;
+  }
+}
+
+/** Reads a chosen .css file into the draft textarea rather than uploading it blind — the manager can review or tweak it before saving. */
+function onCssFileChosen(event: Event) {
+  const file = (event.target as HTMLInputElement).files?.[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = () => {
+    customCssDraft.value = String(reader.result ?? '');
+  };
+  reader.readAsText(file);
+}
+
+async function saveCustomCss() {
+  savingCustomCss.value = true;
+  error.value = null;
+  try {
+    project.value = await projectsApi.setCustomCss(props.slug, customCssDraft.value || null);
+  } catch (e) {
+    error.value = e instanceof Error ? e.message : 'Could not save custom CSS';
+  } finally {
+    savingCustomCss.value = false;
   }
 }
 
@@ -210,6 +249,37 @@ async function saveLanguages() {
       </label>
     </section>
 
+    <section v-if="canManage" class="setting">
+      <h2>Style</h2>
+      <p class="hint">Applied to how readers see this project's articles.</p>
+      <label v-for="style in PROJECT_STYLES" :key="style.id">
+        <input
+          type="radio"
+          :value="style.id"
+          :checked="project.styleId === style.id"
+          :disabled="savingStyle"
+          @change="setStyle(style.id)"
+        />
+        <span>{{ style.name }}</span>
+      </label>
+
+      <div class="custom-css">
+        <h3>Custom CSS</h3>
+        <p class="hint">
+          Layered on top of the style above. Upload a .css file or edit it directly, then save.
+        </p>
+        <input type="file" accept=".css,text/css" @change="onCssFileChosen" />
+        <textarea
+          v-model="customCssDraft"
+          rows="8"
+          placeholder="/* custom CSS for this project */"
+        ></textarea>
+        <button type="button" :disabled="savingCustomCss" @click="saveCustomCss">
+          Save custom CSS
+        </button>
+      </div>
+    </section>
+
     <form v-if="canManage" class="languages-form" @submit.prevent="saveLanguages">
       <h2>Project languages</h2>
       <p class="hint">
@@ -298,6 +368,16 @@ async function saveLanguages() {
 .hint {
   font-size: 0.8rem;
   color: var(--text-muted);
+}
+.custom-css {
+  margin-top: 1rem;
+}
+.custom-css textarea {
+  width: 100%;
+  font-family: ui-monospace, 'SF Mono', Consolas, monospace;
+  font-size: 0.85rem;
+  margin: 0.5rem 0;
+  padding: 0.5rem;
 }
 .error {
   color: #c0392b;

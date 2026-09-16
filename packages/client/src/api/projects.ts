@@ -12,6 +12,10 @@ export const projectsApi = {
     api.put<Project>(`/projects/${slug}/snapshot-mode`, { snapshotMode }),
   setFinnaAllowNonCommercial: (slug: string, allow: boolean) =>
     api.put<Project>(`/projects/${slug}/finna-allow-noncommercial`, { allow }),
+  setStyle: (slug: string, styleId: string) =>
+    api.put<Project>(`/projects/${slug}/style`, { styleId }),
+  setCustomCss: (slug: string, css: string | null) =>
+    api.put<Project>(`/projects/${slug}/custom-css`, { css }),
   listArticles: (slug: string, language?: string) =>
     api.get<Article[]>(`/projects/${slug}/articles${language ? `?language=${language}` : ''}`),
   createArticle: (

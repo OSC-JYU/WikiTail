@@ -1,0 +1,32 @@
+/*
+ * "Shades" project style preset — a dark, high-contrast reading theme.
+ * Scoped under [data-project-style] so it only affects the reading views it's
+ * explicitly mounted in, never the editor or admin screens.
+ */
+[data-project-style] {
+  background: #1b1e23;
+  color: #d8dde3;
+  padding: 1rem;
+  border-radius: 8px;
+}
+[data-project-style] h1,
+[data-project-style] h2,
+[data-project-style] h3 {
+  color: #f2f5f8;
+}
+[data-project-style] a {
+  color: #6fb1ff;
+}
+[data-project-style] a:hover {
+  color: #a4cdff;
+}
+[data-project-style] .lang,
+[data-project-style] .status {
+  color: #9aa4b1;
+  border-color: #3a3f47;
+}
+[data-project-style] .prose blockquote {
+  border-left: 4px solid #3a3f47;
+  background: #22262c;
+  padding: 0.5rem 1rem;
+}

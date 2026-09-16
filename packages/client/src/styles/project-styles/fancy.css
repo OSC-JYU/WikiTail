@@ -1,0 +1,33 @@
+/*
+ * "Fancy" project style preset — a warm, serif editorial look.
+ * Scoped under [data-project-style] so it only affects the reading views it's
+ * explicitly mounted in, never the editor or admin screens.
+ */
+[data-project-style] {
+  font-family: Georgia, 'Times New Roman', Times, serif;
+}
+[data-project-style] h1,
+[data-project-style] h2,
+[data-project-style] h3 {
+  font-family: 'Trebuchet MS', Georgia, serif;
+  color: #7a3b12;
+}
+[data-project-style] h1 {
+  border-bottom: 3px double #7a3b12;
+  padding-bottom: 0.3rem;
+}
+[data-project-style] a {
+  color: #a1522d;
+}
+[data-project-style] a:hover {
+  color: #7a3b12;
+}
+[data-project-style] .prose blockquote {
+  border-left: 4px solid #d9b38c;
+  background: #fdf6ee;
+  padding: 0.5rem 1rem;
+}
+[data-project-style] .lang {
+  border-color: #d9b38c;
+  color: #a1522d;
+}

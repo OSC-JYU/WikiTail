@@ -18,12 +18,18 @@
     "@hapi/inert": "^7.1.0",
     "@wikitail/shared": "*",
     "better-sqlite3": "^11.5.0",
+    "dejavu-fonts-ttf": "^2.37.3",
     "joi": "^17.13.3",
-    "sanitize-html": "^2.13.1"
+    "markdown-it": "^15.0.3",
+    "pdfkit": "^0.20.2",
+    "sanitize-html": "^2.13.1",
+    "sharp": "^0.35.5"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^7.6.11",
+    "@types/markdown-it": "^14.2.0",
     "@types/node": "^22.9.0",
+    "@types/pdfkit": "^0.17.7",
     "@types/sanitize-html": "^2.13.0",
     "tsx": "^4.19.2",
     "typescript": "~6.0.2",

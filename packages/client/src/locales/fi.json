@@ -2,6 +2,7 @@
   "nav": {
     "browse": "Selaa",
     "edit": "Muokkaa",
+    "downloadPdf": "Lataa PDF",
     "backToProject": "Takaisin projektiin",
     "backToProjects": "Kaikki projektit",
     "viewPublished": "Katso julkaistu",

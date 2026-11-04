@@ -8,6 +8,7 @@ import {
   type LibraryItemSummary,
 } from '@wikitail/shared';
 import { publicApi } from '../api/public';
+import { BASE_URL } from '../lib/basePath';
 import { renderMarkdown } from '../lib/markdown';
 import { framableWikiUrl, wikiPageTitle } from '../lib/wikiLinks';
 import { languageName } from '../lib/languageName';
@@ -107,6 +108,14 @@ const missingInLocale = computed(
 
 const projectUsesLocale = computed(() => data.value?.project.languages.includes(locale.value));
 
+const pdfUrl = computed(() =>
+  data.value
+    ? `${BASE_URL}api/export/${encodeURIComponent(props.project)}/${encodeURIComponent(
+        data.value.article.language,
+      )}/${encodeURIComponent(data.value.article.slug)}/pdf`
+    : '',
+);
+
 const articleLicence = computed(() =>
   data.value ? findLicence(data.value.article.licenseId) : undefined,
 );
@@ -120,6 +129,10 @@ const articleLicence = computed(() =>
       <RouterLink :to="{ name: 'browse-project', params: { project } }" class="back">
         {{ $t('nav.backToProject') }}
       </RouterLink>
+      <!-- The PDF is stamped with the requester's email, so it is offered to signed-in users only. -->
+      <a v-if="auth.user" class="edit-link" :href="pdfUrl" download>
+        {{ $t('nav.downloadPdf') }}
+      </a>
       <!-- Signed-in authors get straight back to the editor for what they are reading. -->
       <RouterLink
         v-if="auth.user"

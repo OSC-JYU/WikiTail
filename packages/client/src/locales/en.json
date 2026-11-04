@@ -2,6 +2,7 @@
   "nav": {
     "browse": "Browse",
     "edit": "Edit",
+    "downloadPdf": "Download PDF",
     "backToProject": "Back to project",
     "backToProjects": "All projects",
     "viewPublished": "View published",

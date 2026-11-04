@@ -14,6 +14,7 @@ import { articlesRoutesPlugin } from './modules/articles/routes.js';
 import { libraryRoutesPlugin } from './modules/library/routes.js';
 import { tailRoutesPlugin } from './modules/tail/routes.js';
 import { publicRoutesPlugin } from './modules/public/routes.js';
+import { exportRoutesPlugin } from './modules/export/routes.js';
 
 async function main() {
   const server = Hapi.server({
@@ -32,6 +33,7 @@ async function main() {
   await server.register(libraryRoutesPlugin);
   await server.register(tailRoutesPlugin);
   await server.register(publicRoutesPlugin);
+  await server.register(exportRoutesPlugin);
   await server.register(staticPlugin);
 
   await server.start();

@@ -26,6 +26,7 @@ const insertStmt = db.prepare(
 const findByIdStmt = db.prepare('SELECT * FROM users WHERE id = ?');
 const listStmt = db.prepare('SELECT * FROM users ORDER BY email');
 const updateRoleStmt = db.prepare('UPDATE users SET role = ? WHERE id = ?');
+const updateDisplayNameStmt = db.prepare('UPDATE users SET display_name = ? WHERE id = ?');
 
 export const usersRepository = {
   findByEmail(email: string): User | undefined {
@@ -53,6 +54,11 @@ export const usersRepository = {
 
   updateRole(id: number, role: UserRole): User {
     updateRoleStmt.run(role, id);
+    return this.findById(id)!;
+  },
+
+  updateDisplayName(id: number, displayName: string | null): User {
+    updateDisplayNameStmt.run(displayName, id);
     return this.findById(id)!;
   },
 };

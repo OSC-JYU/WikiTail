@@ -3,7 +3,7 @@ import type { TailEntry, TailEntryView, User } from '@wikitail/shared';
 import { notFound } from '../../lib/errors.js';
 import { articlesRepository } from '../articles/repository.js';
 import { libraryRepository } from '../library/repository.js';
-import { assertCanEdit } from '../projects/membership.js';
+import { assertCanEditArticle } from '../projects/membership.js';
 import { tailRepository } from './repository.js';
 
 function requireArticle(articleId: number) {
@@ -12,10 +12,10 @@ function requireArticle(articleId: number) {
   return article;
 }
 
-/** Curating an article's tail is an edit — anyone who can edit the article's project can do it. */
+/** Curating an article's tail is an edit — only the article's owner can do it. */
 function requireEditAccess(actor: User, articleId: number) {
   const article = requireArticle(articleId);
-  assertCanEdit(actor, article.projectId);
+  assertCanEditArticle(actor, article);
   return article;
 }
 

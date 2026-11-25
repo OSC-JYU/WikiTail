@@ -1,6 +1,7 @@
 import type { Plugin, Server } from '@hapi/hapi';
 import type { User } from '@wikitail/shared';
 import { getArticle } from '../public/service.js';
+import { userDisplayName } from '../users/service.js';
 import { renderArticlePdf } from './article-pdf.js';
 
 /** Header values must be latin-1, so non-ASCII names go in the RFC 5987 `filename*` form. */
@@ -14,7 +15,7 @@ export const exportRoutesPlugin: Plugin<undefined> = {
   name: 'wikitail-export-routes',
   register(server: Server) {
     // Unlike the rest of the public site this needs a session: the PDF is stamped
-    // with the email of whoever asked for it. Only published articles can be
+    // with the name of whoever asked for it. Only published articles can be
     // exported — getArticle hides drafts the same way the public reader does.
     server.route({
       method: 'GET',
@@ -26,7 +27,10 @@ export const exportRoutesPlugin: Plugin<undefined> = {
           request.params.language as string,
           request.params.articleSlug as string,
         );
-        const pdf = await renderArticlePdf(data, { email: user.email, generatedAt: new Date() });
+        const pdf = await renderArticlePdf(data, {
+          name: userDisplayName(user),
+          generatedAt: new Date(),
+        });
 
         return h
           .response(pdf)

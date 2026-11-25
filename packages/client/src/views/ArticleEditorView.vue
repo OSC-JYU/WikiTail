@@ -154,6 +154,24 @@ async function save(status: 'draft' | 'published') {
     saving.value = false;
   }
 }
+
+const deleting = ref(false);
+
+async function deleteArticle() {
+  if (!article.value) return;
+  const isLast = versions.value.length <= 1;
+  const message = isLast
+    ? `Delete "${article.value.title}"? This is the only language version, so its library and tail are deleted too. This cannot be undone.`
+    : `Delete the ${article.value.language} version "${article.value.title}" and its tail? Other language versions are kept. This cannot be undone.`;
+  if (!window.confirm(message)) return;
+  deleting.value = true;
+  try {
+    await articlesApi.remove(article.value.id);
+    await router.push({ name: 'project', params: { slug: props.slug } });
+  } finally {
+    deleting.value = false;
+  }
+}
 </script>
 
 <template>
@@ -278,6 +296,7 @@ async function save(status: 'draft' | 'published') {
         <button :disabled="saving" @click="save('draft')">Save draft</button>
         <button :disabled="saving" @click="save('published')">Publish</button>
         <span class="status">Status: {{ article.status }}</span>
+        <button class="delete" :disabled="deleting || saving" @click="deleteArticle">Delete</button>
       </div>
     </section>
 
@@ -508,5 +527,9 @@ async function save(status: 'draft' | 'published') {
 .status {
   font-size: 0.85rem;
   color: var(--text-muted);
+}
+.delete {
+  margin-left: auto;
+  color: #b00020;
 }
 </style>

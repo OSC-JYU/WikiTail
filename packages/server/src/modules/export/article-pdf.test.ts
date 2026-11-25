@@ -28,7 +28,7 @@ describe('renderArticlePdf', () => {
   });
 
   it('keeps links to external sources but drops links into Wikitail itself', async () => {
-    const pdf = await renderArticlePdf(data, { email: 'a@b.c', generatedAt: new Date() });
+    const pdf = await renderArticlePdf(data, { name: 'a', generatedAt: new Date() });
     const text = pdf.toString('latin1');
 
     expect(text).toContain('https://example.org');

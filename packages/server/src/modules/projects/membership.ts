@@ -43,6 +43,28 @@ export function assertCanEdit(actor: User, projectId: number): void {
   }
 }
 
+/**
+ * Editing an existing article (and its tail and library) is limited to the user
+ * who created it. Admins keep their global override; the owner must also still
+ * be a member of the project.
+ */
+export function canEditArticle(
+  actor: User,
+  article: { projectId: number; createdBy: number },
+): boolean {
+  if (actor.role === 'admin') return true;
+  return article.createdBy === actor.id && canEdit(actor, article.projectId);
+}
+
+export function assertCanEditArticle(
+  actor: User,
+  article: { projectId: number; createdBy: number },
+): void {
+  if (!canEditArticle(actor, article)) {
+    forbidden('Only the owner of this article can edit it');
+  }
+}
+
 export function assertCanManage(actor: User, projectId: number): void {
   if (!canManage(actor, projectId)) {
     forbidden('Only a project manager or an admin can change this');

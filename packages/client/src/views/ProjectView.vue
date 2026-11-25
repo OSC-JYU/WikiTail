@@ -40,6 +40,11 @@ const myRole = computed(() => {
 const canEdit = computed(() => myRole.value !== null);
 const canManage = computed(() => myRole.value === 'admin' || myRole.value === 'manager');
 
+/** Only an article's owner (or an admin) can open it in the editor. */
+function canEditArticle(article: { createdBy: number }) {
+  return auth.user?.role === 'admin' || article.createdBy === auth.user?.id;
+}
+
 async function load() {
   project.value = await projectsApi.get(props.slug);
   articles.value = await projectsApi.listArticles(props.slug);
@@ -173,9 +178,22 @@ async function saveLanguages() {
     <h2>Articles</h2>
     <ul class="article-list">
       <li v-for="article in articles" :key="article.id">
-        <RouterLink :to="{ name: 'article-edit', params: { slug: project.slug, id: article.id } }">
+        <RouterLink
+          v-if="canEditArticle(article)"
+          :to="{ name: 'article-edit', params: { slug: project.slug, id: article.id } }"
+        >
           {{ article.title }}
         </RouterLink>
+        <RouterLink
+          v-else-if="article.status === 'published'"
+          :to="{
+            name: 'browse-article',
+            params: { project: project.slug, language: article.language, article: article.slug },
+          }"
+        >
+          {{ article.title }}
+        </RouterLink>
+        <span v-else>{{ article.title }}</span>
         <span class="meta">
           <span class="lang">{{ article.language }}</span>
           <span class="status">{{ article.status }}</span>

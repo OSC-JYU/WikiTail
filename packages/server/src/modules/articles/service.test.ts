@@ -14,7 +14,8 @@ const { db } = await import('../../db/connection.js');
 const { usersRepository } = await import('../users/repository.js');
 const { projectsRepository } = await import('../projects/repository.js');
 const { articlesRepository } = await import('./repository.js');
-const { createArticle, createTranslation, resolveInLanguage } = await import('./service.js');
+const { createArticle, createTranslation, deleteArticle, resolveInLanguage, updateArticle } = await import('./service.js');
+const { projectMembersRepository } = await import('../projects/members-repository.js');
 
 const actor = usersRepository.upsertByEmail('tester@wikitail.local', 'admin');
 
@@ -171,5 +172,75 @@ describe('resolving a group for a reader', () => {
     const resolved = resolveInLanguage(actor, fi.translationGroupId, 'en');
     expect(resolved.kind).toBe('match');
     expect(resolved.kind === 'match' && resolved.article.id).toBe(en.id);
+  });
+});
+
+describe('article ownership', () => {
+  function setup() {
+    const project = makeProject(['fi']);
+    const owner = usersRepository.upsertByEmail('owner@wikitail.local', 'author');
+    const colleague = usersRepository.upsertByEmail('colleague@wikitail.local', 'author');
+    projectMembersRepository.add(project.id, owner.id, 'editor');
+    projectMembersRepository.add(project.id, colleague.id, 'manager');
+    const article = createArticle(owner, project.id, { title: 'Mylly', bodyMarkdown: '' });
+    return { project, owner, colleague, article };
+  }
+
+  const edit = { title: 'Mylly', bodyMarkdown: 'x', status: 'draft' as const };
+
+  it('lets the owner edit', () => {
+    const { owner, article } = setup();
+    expect(updateArticle(owner, article.id, edit).bodyMarkdown).toBe('x');
+  });
+
+  it('refuses other project members, even managers', () => {
+    const { colleague, article } = setup();
+    expect(() => updateArticle(colleague, article.id, edit)).toThrow(/owner/);
+  });
+
+  it('refuses the owner once removed from the project', () => {
+    const { project, owner, article } = setup();
+    projectMembersRepository.remove(project.id, owner.id);
+    expect(() => updateArticle(owner, article.id, edit)).toThrow(/owner/);
+  });
+
+  it('keeps the admin override', () => {
+    const { article } = setup();
+    expect(updateArticle(actor, article.id, edit).bodyMarkdown).toBe('x');
+  });
+});
+
+describe('deleting articles', () => {
+  it('keeps the other language versions', () => {
+    const project = makeProject(['fi', 'en']);
+    const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
+    const en = createTranslation(actor, fi.id, { language: 'en', title: 'Mill', bodyMarkdown: '' });
+
+    deleteArticle(actor, en.id);
+
+    expect(articlesRepository.findById(en.id)).toBeUndefined();
+    expect(articlesRepository.findById(fi.id)).toBeDefined();
+    expect(articlesRepository.findGroup(fi.translationGroupId)).toBeDefined();
+  });
+
+  it('removes the translation group with its last version', () => {
+    const project = makeProject(['fi']);
+    const fi = createArticle(actor, project.id, { title: 'Mylly', bodyMarkdown: '' });
+
+    deleteArticle(actor, fi.id);
+
+    expect(articlesRepository.findGroup(fi.translationGroupId)).toBeUndefined();
+  });
+
+  it('refuses anyone but the owner', () => {
+    const project = makeProject(['fi']);
+    const owner = usersRepository.upsertByEmail('owner@wikitail.local', 'author');
+    const other = usersRepository.upsertByEmail('colleague@wikitail.local', 'author');
+    projectMembersRepository.add(project.id, owner.id, 'editor');
+    projectMembersRepository.add(project.id, other.id, 'manager');
+    const article = createArticle(owner, project.id, { title: 'Mylly', bodyMarkdown: '' });
+
+    expect(() => deleteArticle(other, article.id)).toThrow(/owner/);
+    expect(articlesRepository.findById(article.id)).toBeDefined();
   });
 });

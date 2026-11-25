@@ -105,7 +105,12 @@
     "yourProjects": "Sinun projektisi",
     "empty": "Et ole vielä minkään projektin jäsen. Projektin ylläpitäjä voi lisätä sinut — pyydä sivuston vastuuhenkilöä ottamaan yhteyttä.",
     "manageLink": "Hallinnoi projekteja ja käyttäjiä →",
-    "loadError": "Projektiesi haku epäonnistui"
+    "loadError": "Projektiesi haku epäonnistui",
+    "nameLabel": "Nimesi",
+    "nameSave": "Tallenna",
+    "nameSaved": "Tallennettu",
+    "nameSaveError": "Nimen tallennus epäonnistui",
+    "nameHint": "Näkyy PDF-viennissä. Jätä tyhjäksi, niin käytetään sähköpostiosoitteen alkuosaa."
   },
   "help": {
     "back": "← Takaisin",

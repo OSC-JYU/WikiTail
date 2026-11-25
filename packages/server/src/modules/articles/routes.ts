@@ -5,6 +5,7 @@ import { getProjectBySlug } from '../projects/service.js';
 import {
   createArticle,
   createTranslation,
+  deleteArticle,
   getVisibleArticle,
   listArticlesForProject,
   listVersions,
@@ -142,6 +143,15 @@ export const articlesRoutesPlugin: Plugin<undefined> = {
           status: 'draft' | 'published';
         };
         return updateArticle(actor, Number(request.params.id), { title, bodyMarkdown, status });
+      },
+    });
+
+    server.route({
+      method: 'DELETE',
+      path: '/api/articles/{id}',
+      handler: (request, h) => {
+        deleteArticle(request.auth.credentials as unknown as User, Number(request.params.id));
+        return h.response().code(204);
       },
     });
   },

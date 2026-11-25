@@ -13,7 +13,33 @@ const projects = ref<MyProject[]>([]);
 const loaded = ref(false);
 const error = ref<string | null>(null);
 
+// Falls back to the email prefix, which is also what the PDF export shows.
+const nameInput = ref('');
+const savingName = ref(false);
+const nameSaved = ref(false);
+const nameError = ref<string | null>(null);
+
+function defaultName(): string {
+  return auth.user?.email.split('@')[0] ?? '';
+}
+
+async function saveName() {
+  savingName.value = true;
+  nameSaved.value = false;
+  nameError.value = null;
+  try {
+    auth.user = await usersApi.updateMe(nameInput.value);
+    nameInput.value = auth.user.displayName ?? defaultName();
+    nameSaved.value = true;
+  } catch (e) {
+    nameError.value = e instanceof Error ? e.message : t('welcome.nameSaveError');
+  } finally {
+    savingName.value = false;
+  }
+}
+
 onMounted(async () => {
+  nameInput.value = auth.user?.displayName ?? defaultName();
   try {
     projects.value = await usersApi.myProjects();
   } catch (e) {
@@ -43,6 +69,15 @@ onMounted(async () => {
   </section>
 
   <section class="projects">
+    <form class="name-form" @submit.prevent="saveName">
+      <label for="display-name">{{ $t('welcome.nameLabel') }}</label>
+      <input id="display-name" v-model="nameInput" maxlength="100" />
+      <button type="submit" :disabled="savingName">{{ $t('welcome.nameSave') }}</button>
+      <span v-if="nameSaved" class="name-note">{{ $t('welcome.nameSaved') }}</span>
+      <span v-if="nameError" class="error">{{ nameError }}</span>
+      <small class="name-note">{{ $t('welcome.nameHint') }}</small>
+    </form>
+
     <h2>{{ $t('welcome.yourProjects') }}</h2>
     <p v-if="error" class="error">{{ error }}</p>
 
@@ -67,6 +102,20 @@ onMounted(async () => {
 </template>
 
 <style scoped>
+.name-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+.name-form small {
+  flex-basis: 100%;
+}
+.name-note {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
 .welcome {
   text-align: center;
   padding: 1.5rem 0 2rem;

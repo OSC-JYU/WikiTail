@@ -50,6 +50,11 @@ const insertStmt = db.prepare(`
 `);
 const insertGroupStmt = db.prepare('INSERT INTO translation_groups (project_id) VALUES (?)');
 const findGroupStmt = db.prepare('SELECT * FROM translation_groups WHERE id = ?');
+const deleteStmt = db.prepare('DELETE FROM articles WHERE id = ?');
+const deleteGroupStmt = db.prepare('DELETE FROM translation_groups WHERE id = ?');
+const isOwnerInGroupStmt = db.prepare(
+  'SELECT 1 FROM articles WHERE translation_group_id = ? AND created_by = ? LIMIT 1',
+);
 const updateStmt = db.prepare(`
   UPDATE articles
   SET title = @title, body_markdown = @bodyMarkdown, status = @status, updated_at = datetime('now')
@@ -85,6 +90,10 @@ export const articlesRepository = {
     return row ? { id: row.id, projectId: row.project_id } : undefined;
   },
 
+  isOwnerInGroup(translationGroupId: number, userId: number): boolean {
+    return isOwnerInGroupStmt.get(translationGroupId, userId) !== undefined;
+  },
+
   /** Creates an article, opening a new translation group unless joining one. */
   create(input: {
     projectId: number;
@@ -109,5 +118,14 @@ export const articlesRepository = {
   update(id: number, input: { title: string; bodyMarkdown: string; status: ArticleStatus }): Article {
     updateStmt.run({ id, ...input });
     return this.findById(id)!;
+  },
+
+  /** Callers must clear rows that reference the article first (tail entries, main-article pointer). */
+  remove(id: number): void {
+    deleteStmt.run(id);
+  },
+
+  removeGroup(id: number): void {
+    deleteGroupStmt.run(id);
   },
 };

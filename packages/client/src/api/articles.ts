@@ -5,6 +5,7 @@ export const articlesApi = {
   get: (id: number) => api.get<Article>(`/articles/${id}`),
   update: (id: number, input: { title: string; bodyMarkdown: string; status: ArticleStatus }) =>
     api.patch<Article>(`/articles/${id}`, input),
+  remove: (id: number) => api.delete<void>(`/articles/${id}`),
   versions: (id: number) => api.get<ArticleVersion[]>(`/articles/${id}/versions`),
   createTranslation: (
     id: number,

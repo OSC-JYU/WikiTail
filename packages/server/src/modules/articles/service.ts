@@ -2,8 +2,12 @@ import Boom from '@hapi/boom';
 import type { Article, ArticleStatus, ArticleVersion, User } from '@wikitail/shared';
 import { DEFAULT_UPLOAD_LICENCE, findLicence } from '@wikitail/shared';
 import { notFound } from '../../lib/errors.js';
+import { logger } from '../../lib/logger.js';
 import { slugify } from '../../lib/slug.js';
-import { assertCanEdit, canViewDrafts } from '../projects/membership.js';
+import { db } from '../../db/connection.js';
+import { unlinkMedia } from '../files/storage.js';
+import { libraryRepository } from '../library/repository.js';
+import { assertCanEdit, assertCanEditArticle, canViewDrafts } from '../projects/membership.js';
 import { projectsRepository } from '../projects/repository.js';
 import { assertLanguageAllowed } from '../projects/service.js';
 import { tailRepository } from '../tail/repository.js';
@@ -160,6 +164,40 @@ export function updateArticle(
   input: { title: string; bodyMarkdown: string; status: ArticleStatus },
 ): Article {
   const article = getArticle(id);
-  assertCanEdit(actor, article.projectId);
+  assertCanEditArticle(actor, article);
   return articlesRepository.update(id, input);
+}
+
+/**
+ * Deletes one language version with its tail. Deleting the last version of a
+ * translation group also deletes the group's library, which only that group's
+ * articles could use. Other versions keep the shared library untouched.
+ */
+export function deleteArticle(actor: User, id: number): void {
+  const article = getArticle(id);
+  assertCanEditArticle(actor, article);
+
+  const mediaPaths: string[] = [];
+  db.transaction(() => {
+    tailRepository.removeByArticle(id);
+    projectsRepository.clearMainArticle(id);
+    articlesRepository.remove(id);
+
+    if (articlesRepository.listVersions(article.translationGroupId).length === 0) {
+      for (const item of libraryRepository.listByGroup(article.translationGroupId)) {
+        if (item.mediaUrl) mediaPaths.push(item.mediaUrl.replace(/^\/uploads\//, ''));
+        libraryRepository.remove(item.id);
+      }
+      articlesRepository.removeGroup(article.translationGroupId);
+    }
+  })();
+
+  // Disk cleanup runs after commit; a leftover file is harmless, a missing one is not.
+  for (const diskPath of mediaPaths) {
+    try {
+      unlinkMedia(diskPath);
+    } catch (err) {
+      logger.warn(`Could not unlink ${diskPath} for deleted article ${id}`, err);
+    }
+  }
 }

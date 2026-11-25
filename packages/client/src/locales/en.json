@@ -105,7 +105,12 @@
     "yourProjects": "Your projects",
     "empty": "You are not part of any project yet. A project manager can add you — ask whoever runs your site to get in touch.",
     "manageLink": "Manage projects and people →",
-    "loadError": "Could not load your projects"
+    "loadError": "Could not load your projects",
+    "nameLabel": "Your name",
+    "nameSave": "Save",
+    "nameSaved": "Saved",
+    "nameSaveError": "Could not save your name",
+    "nameHint": "Shown on PDF exports. Leave empty to use the first part of your email."
   },
   "help": {
     "back": "← Back",

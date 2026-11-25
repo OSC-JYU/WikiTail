@@ -8,7 +8,8 @@ process.env.DB_PATH = dbPath;
 
 const { db } = await import('../../db/connection.js');
 const { usersRepository } = await import('./repository.js');
-const { addUser, listUsers, setUserRole } = await import('./service.js');
+const { addUser, listUsers, setUserRole, updateMyDisplayName, userDisplayName } =
+  await import('./service.js');
 
 const admin = usersRepository.upsertByEmail('admin@wikitail.local', 'admin');
 const author = usersRepository.upsertByEmail('author@wikitail.local', 'author');
@@ -64,5 +65,22 @@ describe('managing roles', () => {
 
   it('reports an unknown user rather than silently doing nothing', () => {
     expect(() => setUserRole(admin, 9999, 'admin')).toThrow(/not found/);
+  });
+});
+
+describe('display name', () => {
+  it('defaults to the email up to the @', () => {
+    expect(userDisplayName({ email: 'jane.doe@example.org', displayName: null })).toBe('jane.doe');
+    expect(userDisplayName({ email: 'jane.doe@example.org', displayName: '  ' })).toBe('jane.doe');
+  });
+
+  it('uses the chosen name when set', () => {
+    expect(userDisplayName({ email: 'jane@example.org', displayName: 'Jane Doe' })).toBe('Jane Doe');
+  });
+
+  it('lets a user change it, and clearing restores the default', () => {
+    const renamed = updateMyDisplayName(author, '  Writer One ');
+    expect(renamed.displayName).toBe('Writer One');
+    expect(updateMyDisplayName(author, '   ').displayName).toBeNull();
   });
 });

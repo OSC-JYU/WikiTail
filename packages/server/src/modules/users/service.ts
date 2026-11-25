@@ -68,6 +68,16 @@ export function addUser(actor: User, email: string, role: UserRole): User {
   return usersRepository.upsertByEmail(normalized, role);
 }
 
+/** The name shown on documents: the chosen name, else the email up to the `@`. */
+export function userDisplayName(user: Pick<User, 'email' | 'displayName'>): string {
+  return user.displayName?.trim() || user.email.split('@')[0]!;
+}
+
+/** A blank name clears the choice, so the email-derived default applies again. */
+export function updateMyDisplayName(actor: User, displayName: string): User {
+  return usersRepository.updateDisplayName(actor.id, displayName.trim() || null);
+}
+
 export function listUsers(actor: User): User[] {
   if (actor.role !== 'admin') forbidden('Only admins can list users');
   return usersRepository.list();

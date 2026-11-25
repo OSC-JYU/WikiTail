@@ -49,6 +49,9 @@ const insertStmt = db.prepare(
   'INSERT INTO projects (slug, title, description, created_by) VALUES (@slug, @title, @description, @createdBy)',
 );
 const setMainArticleStmt = db.prepare('UPDATE projects SET main_article_id = ? WHERE id = ?');
+const clearMainArticleStmt = db.prepare(
+  'UPDATE projects SET main_article_id = NULL WHERE main_article_id = ?',
+);
 const setSnapshotModeStmt = db.prepare('UPDATE projects SET snapshot_mode = ? WHERE id = ?');
 const setFinnaAllowNonCommercialStmt = db.prepare(
   'UPDATE projects SET finna_allow_noncommercial = ? WHERE id = ?',
@@ -103,6 +106,10 @@ export const projectsRepository = {
       return id;
     });
     return this.findById(create())!;
+  },
+
+  clearMainArticle(articleId: number): void {
+    clearMainArticleStmt.run(articleId);
   },
 
   setMainArticle(id: number, articleId: number): Project {

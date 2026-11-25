@@ -11,7 +11,7 @@ import type {
   User,
 } from '@wikitail/shared';
 import { DEFAULT_UPLOAD_LICENCE, findLicence } from '@wikitail/shared';
-import { notFound } from '../../lib/errors.js';
+import { forbidden, notFound } from '../../lib/errors.js';
 import { logger } from '../../lib/logger.js';
 import { articlesRepository } from '../articles/repository.js';
 import { filesRepository } from '../files/repository.js';
@@ -23,7 +23,7 @@ import {
   writeMedia,
   writeMediaStream,
 } from '../files/storage.js';
-import { assertCanEdit } from '../projects/membership.js';
+import { assertCanEditArticle, canEdit } from '../projects/membership.js';
 import { projectsRepository } from '../projects/repository.js';
 import { getAdapter } from '../sources/registry.js';
 import { libraryRepository } from './repository.js';
@@ -65,8 +65,17 @@ function groupFor(articleId: number): number {
 function requireEditAccess(actor: User, articleId: number) {
   const article = articlesRepository.findById(articleId);
   if (!article) notFound('Article');
-  assertCanEdit(actor, article.projectId);
+  assertCanEditArticle(actor, article);
   return article;
+}
+
+/** A library is shared by a translation group, so any owner of one of its versions may manage items. */
+function assertCanEditItem(actor: User, translationGroupId: number): void {
+  const group = articlesRepository.findGroup(translationGroupId);
+  if (!group) return;
+  const owner = articlesRepository.isOwnerInGroup(translationGroupId, actor.id);
+  if (actor.role === 'admin' || (owner && canEdit(actor, group.projectId))) return;
+  forbidden('Only the owner of this article can edit it');
 }
 
 /**
@@ -210,8 +219,7 @@ export function updateLibraryItem(
   input: { description?: string | null; title?: string; author?: string; licenceId?: string },
 ): LibraryItemSummary {
   const item = getLibraryItem(id);
-  const group = articlesRepository.findGroup(item.translationGroupId);
-  if (group) assertCanEdit(actor, group.projectId);
+  assertCanEditItem(actor, item.translationGroupId);
   const ownUpload = item.sourceType === 'local_upload';
 
   if (!ownUpload && (input.title || input.author || input.licenceId)) {
@@ -243,8 +251,7 @@ export function updateLibraryItem(
  */
 export function removeLibraryItem(actor: User, id: number): void {
   const item = getLibraryItem(id);
-  const group = articlesRepository.findGroup(item.translationGroupId);
-  if (group) assertCanEdit(actor, group.projectId);
+  assertCanEditItem(actor, item.translationGroupId);
 
   const usage = libraryRepository.countUsage(id);
   if (usage.tail > 0 || usage.body > 0) {

@@ -28,8 +28,8 @@ const fontDir = path.join(
 );
 
 export interface PdfExportOptions {
-  /** Email of the signed-in user the document is generated for. */
-  email: string;
+  /** Name of the signed-in user the document is generated for. */
+  name: string;
   generatedAt: Date;
 }
 
@@ -100,7 +100,7 @@ function drawCover(
   doc.fillColor('#aebfd6').font(FONTS.regular).fontSize(8.5)
     .text(L.preparedFor.toUpperCase(), MARGIN, 32, { characterSpacing: 1.2, lineBreak: false });
   doc.fillColor('#ffffff').font(FONTS.bold).fontSize(16)
-    .text(opts.email, MARGIN, 47, { width: contentWidth, lineBreak: false, ellipsis: true });
+    .text(opts.name, MARGIN, 47, { width: contentWidth, lineBreak: false, ellipsis: true });
 
   doc.fillColor(ACCENT).font(FONTS.bold).fontSize(10.5)
     .text(project.title.toUpperCase(), MARGIN, 190, { width: contentWidth, characterSpacing: 1.4 });

@@ -32,6 +32,7 @@ const insertStmt = db.prepare(`
 `);
 const updateCommentaryStmt = db.prepare('UPDATE tail_entries SET commentary = ? WHERE id = ?');
 const deleteStmt = db.prepare('DELETE FROM tail_entries WHERE id = ?');
+const deleteByArticleStmt = db.prepare('DELETE FROM tail_entries WHERE article_id = ?');
 const setPositionStmt = db.prepare('UPDATE tail_entries SET position = ? WHERE id = ?');
 const copyStmt = db.prepare(`
   INSERT INTO tail_entries (article_id, library_item_id, commentary, position)
@@ -65,6 +66,10 @@ export const tailRepository = {
 
   remove(id: number): void {
     deleteStmt.run(id);
+  },
+
+  removeByArticle(articleId: number): void {
+    deleteByArticleStmt.run(articleId);
   },
 
   /**

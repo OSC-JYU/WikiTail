@@ -2,7 +2,7 @@ import type { Plugin, Server } from '@hapi/hapi';
 import Joi from 'joi';
 import type { User, UserRole } from '@wikitail/shared';
 import { listMyProjects } from '../projects/service.js';
-import { addUser, listUsers, setUserRole } from './service.js';
+import { addUser, listUsers, setUserRole, updateMyDisplayName } from './service.js';
 
 export const usersRoutesPlugin: Plugin<undefined> = {
   name: 'wikitail-users-routes',
@@ -11,6 +11,20 @@ export const usersRoutesPlugin: Plugin<undefined> = {
       method: 'GET',
       path: '/api/me',
       handler: (request) => request.auth.credentials as unknown as User,
+    });
+
+    server.route({
+      method: 'PATCH',
+      path: '/api/me',
+      options: {
+        validate: {
+          payload: Joi.object({ displayName: Joi.string().trim().allow('').max(100).required() }),
+        },
+      },
+      handler: (request) => {
+        const { displayName } = request.payload as { displayName: string };
+        return updateMyDisplayName(request.auth.credentials as unknown as User, displayName);
+      },
     });
 
     server.route({

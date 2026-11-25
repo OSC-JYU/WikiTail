@@ -116,6 +116,13 @@ const pdfUrl = computed(() =>
     : '',
 );
 
+const canEditArticle = computed(
+  () =>
+    !!auth.user &&
+    !!data.value &&
+    (auth.user.role === 'admin' || data.value.article.createdBy === auth.user.id),
+);
+
 const articleLicence = computed(() =>
   data.value ? findLicence(data.value.article.licenseId) : undefined,
 );
@@ -129,13 +136,13 @@ const articleLicence = computed(() =>
       <RouterLink :to="{ name: 'browse-project', params: { project } }" class="back">
         {{ $t('nav.backToProject') }}
       </RouterLink>
-      <!-- The PDF is stamped with the requester's email, so it is offered to signed-in users only. -->
+      <!-- The PDF is stamped with the requester's name, so it is offered to signed-in users only. -->
       <a v-if="auth.user" class="edit-link" :href="pdfUrl" download>
         {{ $t('nav.downloadPdf') }}
       </a>
-      <!-- Signed-in authors get straight back to the editor for what they are reading. -->
+      <!-- Only the owner (or an admin) can edit, so only they are sent to the editor. -->
       <RouterLink
-        v-if="auth.user"
+        v-if="canEditArticle"
         class="edit-link"
         :to="{ name: 'article-edit', params: { slug: project, id: data.article.id } }"
       >

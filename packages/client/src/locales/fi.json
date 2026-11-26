@@ -112,6 +112,94 @@
     "nameSaveError": "Nimen tallennus epäonnistui",
     "nameHint": "Näkyy PDF-viennissä. Jätä tyhjäksi, niin käytetään sähköpostiosoitteen alkuosaa."
   },
+  "editorNotice": {
+    "draftSaved": "Luonnos tallennettu",
+    "published": "Artikkeli julkaistu",
+    "saveFailed": "Tallennus epäonnistui: {message}",
+    "unsaved": "Tallentamattomia muutoksia",
+    "unsavedConfirm": "Sinulla on tallentamattomia muutoksia. Poistutaanko tallentamatta?"
+  },
+  "tutorial": {
+    "title": "Pikaopas toimittajalle",
+    "intro": "Tämä opas näyttää, miten kirjoitat artikkelin, tuot siihen aineistoa ulkoisista lähteistä ja julkaiset sen. Esimerkkinä on artikkeli Sauna. Editorin napit on nimetty niin kuin ne näkyvät ruudulla.",
+    "helpLink": "Pikaopas toimittajalle →",
+    "back": "← Näin Wikitail toimii",
+    "quickHeading": "Pikaohje",
+    "quickWant": "Haluan…",
+    "quickHow": "Tee näin",
+    "home": {
+      "title": "Kirjaudu ja avaa projekti",
+      "body1": "Kun kirjaudut sisään, näet etusivun. Sivulla on Nimesi-kenttä: nimi näkyy PDF-viennin yläreunassa. Jos kenttä on tyhjä, käytetään sähköpostiosoitteen alkuosaa (ennen {'@'}-merkkiä). Voit vaihtaa nimen milloin tahansa ja painaa Tallenna.",
+      "body2": "Sen alla on lista projekteista, joiden jäsen olet. Avaa projekti napsauttamalla sen nimeä.",
+      "note": "Jos et näe yhtään projektia, pyydä projektin ylläpitäjää lisäämään sinut jäseneksi."
+    },
+    "project": {
+      "title": "Luo artikkeli",
+      "body1": "Projektin sivulla näet projektin artikkelit. Luo uusi artikkeli kirjoittamalla otsikko, valitsemalla kieli ja lisenssi (oletus CC BY 4.0) ja painamalla Create article. Uusi artikkeli on aina luonnos, jonka näkevät vain projektin jäsenet.",
+      "note": "Muokkausoikeus: artikkelia voi muokata vain sen luonut käyttäjä (omistaja) tai pääkäyttäjä. Muiden artikkelit voit lukea, mutta et muokata, vaikka olisit samassa projektissa."
+    },
+    "editor": {
+      "title": "Kirjoita artikkeli",
+      "body1": "Avaa artikkeli napsauttamalla sen otsikkoa. Editori on jaettu välilehtiin:",
+      "item1": "Article: artikkelin teksti. Kirjoitat vasemmalle Markdown-muodossa ja oikealla näet esikatselun. Markdown help -nappi neuvoo muotoilussa.",
+      "item2": "Article library ja Tail: artikkeliin kuuluva aineisto (ks. alla).",
+      "item3": "Wiki world, Commons, Finna, Local: lähteet, joista tuot aineistoa.",
+      "after1": "Tallenna painamalla Save draft. Muutokset eivät tallennu ennen kuin painat nappia.",
+      "after2": "Kielen vieressä näkyvät artikkelin kieliversiot. Napsauttamalla esimerkiksi + EN voit luoda artikkelille käännöksen. Käännös on oma artikkelinsa, jonka omistaja olet sinä."
+    },
+    "import": {
+      "title": "Tuo aineistoa lähteistä",
+      "body1": "Kaikki aineisto kootaan ensin artikkelin kirjastoon. Sieltä sen voi upottaa tekstiin tai lisätä häntään. Avaa jokin lähdevälilehti:",
+      "item1": "Wiki world: Wikipedian ja Wikidatan sivut.",
+      "item2": "Commons: vapaasti lisensoidut kuvat, äänet ja videot.",
+      "item3": "Finna: suomalaisten arkistojen, kirjastojen ja museoiden aineisto.",
+      "item4": "Local: omat tiedostosi. Valitset itse lisenssin ja tekijän.",
+      "after1": "Kirjoita hakusana, paina Hae ja sitten haluamasi tuloksen vierestä Tuo. Aineisto tallentuu kirjastoon tekijän ja lisenssin kanssa.",
+      "after2": "Tuotu aineisto näkyy Article library -välilehdellä."
+    },
+    "embed": {
+      "title": "Upota aineisto tekstiin",
+      "body1": "Kirjaston kohteen voi lisätä suoraan artikkelin tekstiin lyhytkoodilla, esimerkiksi {code}.",
+      "item1": "Paina Article-välilehdellä Show library.",
+      "item2": "Aseta kursori tekstissä kohtaan, johon haluat kohteen.",
+      "item3": "Paina kirjaston kohteen vierestä Insert. Lyhytkoodi lisätään kursorin kohdalle, ja esikatselu näyttää kohteen heti."
+    },
+    "tail": {
+      "title": "Kokoa häntä",
+      "body1": "Häntä on artikkelin lopussa näytettävä valikoitu lista lähteistä. Jokaisella kohteella on oma kommenttisi siitä, miksi se on mukana.",
+      "item1": "Avaa Tail-välilehti.",
+      "item2": "Paina Add from your library -kohdassa kohteen vierestä Add.",
+      "item3": "Kirjoita kohteelle kommentti. Kommentti tallentuu, kun siirryt pois kentästä.",
+      "item4": "Järjestä kohteet vetämällä niitä kahvasta (⠿) ja poista kohde ×-napilla."
+    },
+    "publish": {
+      "title": "Julkaise",
+      "body1": "Kun artikkeli on valmis, paina Publish. Tila vaihtuu muotoon published, ja artikkeli tulee kaikkien nähtäville. Julkaisun jälkeen voit yhä muokata artikkelia. Jos haluat piilottaa sen, tallenna se uudelleen napilla Save draft.",
+      "body2": "Julkaistun artikkelin lukunäkymässä näkyvät teksti, lähdeviitteet ja lopussa häntä kommentteineen."
+    },
+    "pdf": {
+      "title": "Lataa PDF",
+      "body1": "Julkaistun artikkelin sivun yläreunassa on linkki Lataa PDF. PDF-tiedostoon tulee artikkeli, kuvat, lähteet ja häntä. Yläreunassa lukee nimi, jonka olet antanut etusivulla.",
+      "body2": "PDF-vienti vaatii sisäänkirjautumisen, ja vain julkaistut artikkelit voi ladata."
+    },
+    "delete": {
+      "title": "Poista artikkeli",
+      "body1": "Artikkelin poistat editorin alareunan punaisella Delete-napilla. Vain artikkelin omistaja ja pääkäyttäjät voivat poistaa artikkelin.",
+      "item1": "Jos artikkelilla on muita kieliversioita, poistetaan vain tämä kieliversio ja sen häntä. Muut versiot ja yhteinen kirjasto säilyvät.",
+      "item2": "Jos poistat artikkelin viimeisen kieliversion, myös sen kirjasto poistetaan.",
+      "after1": "Poistoa ei voi perua."
+    },
+    "quick": {
+      "name": { "want": "Vaihtaa PDF:ssä näkyvän nimen", "how": "Etusivu → Nimesi → Tallenna" },
+      "create": { "want": "Luoda artikkelin", "how": "Projektin sivu → otsikko → Create article" },
+      "save": { "want": "Tallentaa luonnoksen", "how": "Save draft" },
+      "import": { "want": "Tuoda kuvan tai sivun", "how": "Commons / Wiki world / Finna → Tuo" },
+      "embed": { "want": "Upottaa kuvan tekstiin", "how": "Show library → Insert" },
+      "tail": { "want": "Lisätä lähteen häntään", "how": "Tail → Add" },
+      "publish": { "want": "Julkaista", "how": "Publish" },
+      "pdf": { "want": "Ladata PDF:n", "how": "Julkaistu artikkeli → Lataa PDF" }
+    }
+  },
   "help": {
     "back": "← Takaisin",
     "title": "Näin Wikitail toimii",

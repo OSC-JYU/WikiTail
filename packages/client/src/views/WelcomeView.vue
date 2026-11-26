@@ -65,6 +65,8 @@ onMounted(async () => {
 
     <p class="help-link">
       <RouterLink :to="{ name: 'help' }">{{ $t('welcome.helpLink') }}</RouterLink>
+      &middot;
+      <RouterLink :to="{ name: 'tutorial' }">{{ $t('tutorial.helpLink') }}</RouterLink>
     </p>
   </section>
 

@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref, useTemplateRef, watch } from 'vue';
-import { useRouter } from 'vue-router';
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, useTemplateRef, watch } from 'vue';
+import { onBeforeRouteLeave, onBeforeRouteUpdate, useRouter } from 'vue-router';
+import { useI18n } from 'vue-i18n';
 import { libraryShortcode, type Article, type ArticleVersion, type Project } from '@wikitail/shared';
 import { articlesApi } from '../api/articles';
 import { projectsApi } from '../api/projects';
@@ -17,6 +18,7 @@ import MarkdownHelp from '../components/editor/MarkdownHelp.vue';
 
 const props = defineProps<{ slug: string; id: string }>();
 const router = useRouter();
+const { t } = useI18n();
 const library = useLibraryStore();
 
 // Core tabs — the article and what belongs to it — are the ones an author moves
@@ -45,6 +47,48 @@ const versions = ref<ArticleVersion[]>([]);
 const saving = ref(false);
 const translating = ref(false);
 
+/** Title and body as last loaded or saved, to tell whether there is anything unsaved. */
+const savedSnapshot = ref({ title: '', body: '' });
+
+function markSaved() {
+  if (!article.value) return;
+  savedSnapshot.value = { title: article.value.title, body: article.value.bodyMarkdown };
+}
+
+const hasUnsavedChanges = computed(
+  () =>
+    !!article.value &&
+    (article.value.title !== savedSnapshot.value.title ||
+      article.value.bodyMarkdown !== savedSnapshot.value.body),
+);
+
+/** Set while leaving on purpose (e.g. after deleting), so the guard stays quiet. */
+let skipLeaveGuard = false;
+
+function confirmLeave(): boolean {
+  return skipLeaveGuard || !hasUnsavedChanges.value || window.confirm(t('editorNotice.unsavedConfirm'));
+}
+
+onBeforeRouteLeave(() => confirmLeave());
+// Switching to another language version reuses this component, so it is not a "leave".
+onBeforeRouteUpdate(() => confirmLeave());
+
+function warnBeforeUnload(event: BeforeUnloadEvent) {
+  if (hasUnsavedChanges.value) event.preventDefault();
+}
+onMounted(() => window.addEventListener('beforeunload', warnBeforeUnload));
+onBeforeUnmount(() => window.removeEventListener('beforeunload', warnBeforeUnload));
+
+const notice = ref<{ text: string; kind: 'success' | 'error' } | null>(null);
+let noticeTimer: ReturnType<typeof setTimeout> | undefined;
+
+function notify(text: string, kind: 'success' | 'error') {
+  notice.value = { text, kind };
+  clearTimeout(noticeTimer);
+  noticeTimer = setTimeout(() => (notice.value = null), kind === 'error' ? 6000 : 3000);
+}
+onBeforeUnmount(() => clearTimeout(noticeTimer));
+
 /** Project languages this article has no version in yet. */
 const missingLanguages = computed(() => {
   const have = new Set(versions.value.map((v) => v.language));
@@ -53,6 +97,7 @@ const missingLanguages = computed(() => {
 
 async function load(id: number) {
   article.value = await articlesApi.get(id);
+  markSaved();
   [project.value, versions.value] = await Promise.all([
     projectsApi.get(props.slug),
     articlesApi.versions(id),
@@ -66,50 +111,38 @@ onMounted(() => load(Number(props.id)));
 watch(() => props.id, (id) => load(Number(id)));
 
 /**
- * Appends a shortcode so the item renders inline in the article body. The label
+ * Inserts a shortcode so the item renders inline in the article body. The label
  * is what makes the raw markdown readable, and what survives if the library row
  * is ever lost — the external id says more than a title where there is one.
  *
- * When the Article tab is active, the shortcode is inserted at the textarea's
- * cursor position so the flow of writing is not interrupted; from elsewhere
- * (like the Article library tab) there is no cursor to honour, and it is
- * appended at the end as before.
+ * It goes at the textarea's cursor, which the browser keeps while the textarea is
+ * hidden behind another tab. The Article tab is then shown with the cursor after
+ * the new shortcode.
  */
 function insertLibraryRef(libraryItemId: number) {
-  if (!article.value) return;
+  const textarea = bodyRef.value;
+  if (!article.value || !textarea) return;
   const item = library.items.find((candidate) => candidate.id === libraryItemId);
   const shortcode = libraryShortcode(libraryItemId, item?.externalId ?? item?.title);
   const body = article.value.bodyMarkdown;
-  const textarea = bodyRef.value;
 
   // Embeds are block-level (see splitArticleBody), so the shortcode needs blank
   // lines around it or markdown will fold it into the surrounding paragraph.
-  if (activeTab.value === 'Article' && textarea) {
-    const start = textarea.selectionStart;
-    const end = textarea.selectionEnd;
-    const before = body.slice(0, start);
-    const after = body.slice(end);
-    const leading =
-      before.length === 0 || before.endsWith('\n\n')
-        ? ''
-        : before.endsWith('\n')
-          ? '\n'
-          : '\n\n';
-    const trailing =
-      after.length === 0 ? '\n' : after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
-    const insertion = `${leading}${shortcode}${trailing}`;
-    article.value.bodyMarkdown = before + insertion + after;
-    const cursor = before.length + insertion.length;
-    nextTick(() => {
-      textarea.focus();
-      textarea.setSelectionRange(cursor, cursor);
-    });
-    return;
-  }
+  const before = body.slice(0, textarea.selectionStart);
+  const after = body.slice(textarea.selectionEnd);
+  const leading =
+    before.length === 0 || before.endsWith('\n\n') ? '' : before.endsWith('\n') ? '\n' : '\n\n';
+  const trailing =
+    after.length === 0 ? '\n' : after.startsWith('\n\n') ? '' : after.startsWith('\n') ? '\n' : '\n\n';
+  const insertion = `${leading}${shortcode}${trailing}`;
+  article.value.bodyMarkdown = before + insertion + after;
+  const cursor = before.length + insertion.length;
 
-  article.value.bodyMarkdown =
-    (body.trim() ? `${body.replace(/\s+$/, '')}\n\n` : '') + shortcode + '\n';
   activeTab.value = 'Article';
+  nextTick(() => {
+    textarea.focus();
+    textarea.setSelectionRange(cursor, cursor);
+  });
 }
 
 /** Which language the author is starting a translation in, or null when not translating. */
@@ -150,6 +183,10 @@ async function save(status: 'draft' | 'published') {
       bodyMarkdown: article.value.bodyMarkdown,
       status,
     });
+    markSaved();
+    notify(t(status === 'published' ? 'editorNotice.published' : 'editorNotice.draftSaved'), 'success');
+  } catch (e) {
+    notify(t('editorNotice.saveFailed', { message: e instanceof Error ? e.message : '' }), 'error');
   } finally {
     saving.value = false;
   }
@@ -167,6 +204,7 @@ async function deleteArticle() {
   deleting.value = true;
   try {
     await articlesApi.remove(article.value.id);
+    skipLeaveGuard = true;
     await router.push({ name: 'project', params: { slug: props.slug } });
   } finally {
     deleting.value = false;
@@ -273,10 +311,11 @@ async function deleteArticle() {
           ref="body"
           v-model="article.bodyMarkdown"
           class="body-input"
-          rows="18"
           placeholder="Write in markdown… use [[library:N]] to embed library content"
         />
-        <ArticlePreview :body="article.bodyMarkdown" />
+        <div class="preview-pane">
+          <ArticlePreview :body="article.bodyMarkdown" />
+        </div>
         <aside v-if="libraryDrawerOpen" class="library-drawer">
           <div class="drawer-head">
             <h3>Article library</h3>
@@ -296,6 +335,7 @@ async function deleteArticle() {
         <button :disabled="saving" @click="save('draft')">Save draft</button>
         <button :disabled="saving" @click="save('published')">Publish</button>
         <span class="status">Status: {{ article.status }}</span>
+        <span v-if="hasUnsavedChanges" class="status unsaved">{{ $t('editorNotice.unsaved') }}</span>
         <button class="delete" :disabled="deleting || saving" @click="deleteArticle">Delete</button>
       </div>
     </section>
@@ -327,6 +367,15 @@ async function deleteArticle() {
     <section v-show="activeTab === 'Tail'">
       <TailEditor :article-id="article.id" :language="article.language" />
     </section>
+
+    <div
+      v-if="notice"
+      class="toast"
+      :class="notice.kind"
+      :role="notice.kind === 'error' ? 'alert' : 'status'"
+    >
+      {{ notice.text }}
+    </div>
   </div>
 </template>
 
@@ -468,6 +517,8 @@ async function deleteArticle() {
   color: var(--text-muted);
 }
 .editor-split {
+  /* Leaves room for the header, tabs and action buttons so those stay on screen. */
+  --pane-height: max(18rem, calc(100dvh - 25rem));
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 0.75rem;
@@ -490,7 +541,7 @@ async function deleteArticle() {
   border: 1px solid var(--border);
   border-radius: 4px;
   padding: 0.5rem 0.75rem;
-  max-height: 32rem;
+  max-height: var(--pane-height);
   overflow: auto;
 }
 .drawer-head {
@@ -515,8 +566,22 @@ async function deleteArticle() {
 .body-input {
   display: block;
   width: 100%;
+  height: var(--pane-height);
+  box-sizing: border-box;
+  resize: none;
   font-family: monospace;
   padding: 0.5rem;
+}
+/* Fixed height keeps the buttons under the editor however long the text gets. */
+.preview-pane {
+  height: var(--pane-height);
+  box-sizing: border-box;
+  overflow: auto;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+.preview-pane :deep(.preview) {
+  border: none;
 }
 .actions {
   display: flex;
@@ -531,5 +596,23 @@ async function deleteArticle() {
 .delete {
   margin-left: auto;
   color: #b00020;
+}
+.unsaved {
+  color: #b36200;
+}
+.toast {
+  position: fixed;
+  right: 1.25rem;
+  bottom: 1.25rem;
+  z-index: 50;
+  max-width: 24rem;
+  padding: 0.6rem 1rem;
+  border-radius: 4px;
+  color: #fff;
+  background: #1f6f43;
+  box-shadow: 0 2px 8px rgb(0 0 0 / 0.25);
+}
+.toast.error {
+  background: #b00020;
 }
 </style>

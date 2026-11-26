@@ -4,6 +4,7 @@ import BrowseProjectView from '../views/BrowseProjectView.vue';
 import BrowseArticleView from '../views/BrowseArticleView.vue';
 import WelcomeView from '../views/WelcomeView.vue';
 import HelpView from '../views/HelpView.vue';
+import TutorialView from '../views/TutorialView.vue';
 import HomeView from '../views/HomeView.vue';
 import ProjectView from '../views/ProjectView.vue';
 import ProjectMembersView from '../views/ProjectMembersView.vue';
@@ -28,6 +29,12 @@ export const router = createRouter({
     // "not authorised" banner is what they see rather than a broken view.
     { path: '/admin', name: 'admin-home', component: WelcomeView, meta: { requiresUser: true } },
     { path: '/admin/help', name: 'help', component: HelpView, meta: { requiresUser: true } },
+    {
+      path: '/admin/help/tutorial',
+      name: 'tutorial',
+      component: TutorialView,
+      meta: { requiresUser: true },
+    },
     {
       path: '/admin/tools',
       name: 'admin-tools',

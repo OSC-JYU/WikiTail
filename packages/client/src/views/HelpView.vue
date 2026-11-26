@@ -12,6 +12,10 @@ const auth = useAuthStore();
 
     <h1>{{ $t('help.title') }}</h1>
 
+    <p>
+      <RouterLink :to="{ name: 'tutorial' }">{{ $t('tutorial.helpLink') }}</RouterLink>
+    </p>
+
     <section>
       <h2>{{ $t('help.projectsHeading') }}</h2>
       <p>{{ $t('help.projectsBody1') }}</p>

@@ -112,6 +112,94 @@
     "nameSaveError": "Could not save your name",
     "nameHint": "Shown on PDF exports. Leave empty to use the first part of your email."
   },
+  "editorNotice": {
+    "draftSaved": "Draft saved",
+    "published": "Article published",
+    "saveFailed": "Saving failed: {message}",
+    "unsaved": "Unsaved changes",
+    "unsavedConfirm": "You have unsaved changes. Leave without saving?"
+  },
+  "tutorial": {
+    "title": "Quick guide for editors",
+    "intro": "This guide shows how to write an article, bring in material from external sources and publish it. The example article is called Sauna. Button names in the editor are shown as they appear on screen.",
+    "helpLink": "Quick guide for editors →",
+    "back": "← How Wikitail works",
+    "quickHeading": "Cheat sheet",
+    "quickWant": "I want to…",
+    "quickHow": "Do this",
+    "home": {
+      "title": "Sign in and open a project",
+      "body1": "After signing in you see the home page. It has a Your name field. The name appears at the top of PDF exports. If the field is empty, the part of your email before the {'@'} sign is used. You can change the name at any time and press Save.",
+      "body2": "Below that is the list of projects you belong to. Click a project to open it.",
+      "note": "If you see no projects, ask a project manager to add you as a member."
+    },
+    "project": {
+      "title": "Create an article",
+      "body1": "The project page lists the project's articles. To create one, type a title, pick a language and a licence (default CC BY 4.0) and press Create article. A new article is always a draft that only project members can see.",
+      "note": "Who can edit: only the user who created an article (its owner) or an administrator can edit it. You can read other people's articles, but not edit them, even in the same project."
+    },
+    "editor": {
+      "title": "Write the article",
+      "body1": "Open an article by clicking its title. The editor is split into tabs:",
+      "item1": "Article: the article text. You write Markdown on the left and see a preview on the right. Markdown help explains the formatting.",
+      "item2": "Article library and Tail: the material that belongs to the article (see below).",
+      "item3": "Wiki world, Commons, Finna, Local: the sources you import material from.",
+      "after1": "Press Save draft to save. Changes are not saved until you press the button.",
+      "after2": "Next to the language you see the article's language versions. Click for example + EN to create a translation. A translation is its own article, and you are its owner."
+    },
+    "import": {
+      "title": "Import material from sources",
+      "body1": "All material is first collected in the article library. From there you can embed it in the text or add it to the tail. Open one of the source tabs:",
+      "item1": "Wiki world: pages from Wikipedia and Wikidata.",
+      "item2": "Commons: freely licensed images, audio and video.",
+      "item3": "Finna: material from Finnish archives, libraries and museums.",
+      "item4": "Local: your own files. You choose the licence and the credit.",
+      "after1": "Type a search term, press Search and then Import next to the result you want. The item is saved in the library with its author and licence.",
+      "after2": "Imported items appear on the Article library tab."
+    },
+    "embed": {
+      "title": "Embed material in the text",
+      "body1": "A library item can be placed in the article text with a shortcode such as {code}.",
+      "item1": "On the Article tab, press Show library.",
+      "item2": "Place the cursor in the text where you want the item.",
+      "item3": "Press Insert next to the library item. The shortcode is added at the cursor and the preview shows the item right away."
+    },
+    "tail": {
+      "title": "Build the tail",
+      "body1": "The tail is a curated list of sources shown after the article. Each item has your own comment about why it is included.",
+      "item1": "Open the Tail tab.",
+      "item2": "Under Add from your library, press Add next to an item.",
+      "item3": "Write a comment for the item. It is saved when you leave the field.",
+      "item4": "Reorder items by dragging the handle (⠿) and remove an item with the × button."
+    },
+    "publish": {
+      "title": "Publish",
+      "body1": "When the article is ready, press Publish. The status changes to published and the article becomes visible to everyone. You can keep editing after publishing. To hide the article again, save it with Save draft.",
+      "body2": "The published article shows the text, source credits and, at the end, the tail with your comments."
+    },
+    "pdf": {
+      "title": "Download a PDF",
+      "body1": "The page of a published article has a Download PDF link at the top. The PDF contains the article, images, sources and the tail. The name you set on the home page appears at the top.",
+      "body2": "PDF export requires signing in, and only published articles can be downloaded."
+    },
+    "delete": {
+      "title": "Delete an article",
+      "body1": "Use the red Delete button at the bottom of the editor. Only the article's owner and administrators can delete an article.",
+      "item1": "If the article has other language versions, only this language version and its tail are deleted. The other versions and the shared library are kept.",
+      "item2": "If you delete the last language version, its library is deleted too.",
+      "after1": "Deleting cannot be undone."
+    },
+    "quick": {
+      "name": { "want": "Change the name shown in PDFs", "how": "Home page → Your name → Save" },
+      "create": { "want": "Create an article", "how": "Project page → title → Create article" },
+      "save": { "want": "Save a draft", "how": "Save draft" },
+      "import": { "want": "Import an image or a page", "how": "Commons / Wiki world / Finna → Import" },
+      "embed": { "want": "Embed an image in the text", "how": "Show library → Insert" },
+      "tail": { "want": "Add a source to the tail", "how": "Tail → Add" },
+      "publish": { "want": "Publish", "how": "Publish" },
+      "pdf": { "want": "Download a PDF", "how": "Published article → Download PDF" }
+    }
+  },
   "help": {
     "back": "← Back",
     "title": "How Wikitail works",
